@@ -1,0 +1,181 @@
+# Preliminary analysis - just Rome data to test methods, Feb 2022
+library(tidyverse)
+library(ggplot2)
+library(vegan)
+
+# Import data
+setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataEntry/PrelimAnalysis/")
+plotdata <- read.csv("GreatBasin2021_PlotData_FebPrelim.csv")
+bunchgrass <- read.csv("GreatBasin2021_BunchgrassQuads_FebPrelim.csv")
+dung <- read.csv("GreatBasin2021_DungCounts_FebPrelim.csv")
+gaps <- read.csv("GreatBasin2021_GapIntercept_FebPrelim.csv")
+lpi <- read.csv("GreatBasin2021_LinePointIntercept_FebPrelim.csv")
+pastures <- read.csv("GreatBasin2021_PastureSheets_FebPrelim.csv")
+
+# Initial cleaning
+# standardize region names
+pastures$Region <- recode(pastures$Region, "Steens " = "Steens", "Twin Falls" = "TwinFalls")
+
+# Cattle dung vs distance to water
+dung <- dung %>%
+  mutate(Pasture = sapply(strsplit(dung$PlotID,split="_"),"[[",1),
+    WaterDist = as.numeric(sapply(strsplit(dung$PlotID,split="_"),"[[",2)),
+    Asp = sapply(strsplit(dung$PlotID,split="_"),"[[",3)
+    ) %>%
+  mutate(Count = replace_na(Count, 0))
+dung$Count <- as.numeric(as.character(dung$Count))
+dungsum <- dung %>%
+  group_by(PlotID,Species,Pasture,WaterDist,Asp) %>%
+  summarise(meancount = mean(Count))
+
+ggplot(data=dungsum,aes(x = WaterDist, y = meancount)) +
+  geom_point() + geom_smooth()
+ggplot(data=dungsum,aes(x = WaterDist, y = log(meancount + 1))) +
+  geom_point() + geom_smooth(method="lm") +
+  theme_classic()
+
+# Facet by water status
+pastures <- pastures %>%
+  mutate(fullwater = sum(CurrentWater1A,CurrentWater1B,CurrentWater2,na.rm=T))
+dungsum <- dungsum %>%
+  left_join(select(pastures,Pasture,fullwater),by="Pasture")
+#waterlabels <- c(TRUE = "Water Present", NA = "Dry")
+
+ggplot(data=dungsum[dungsum$Species=="cattle",],aes(x = WaterDist, y = meancount)) +
+  geom_point() + geom_smooth(method="lm",aes(group=Pasture)) +
+  facet_wrap(~fullwater)
+ggplot(data=dungsum[dungsum$Species=="cattle",],aes(x = WaterDist, y = log(meancount + 1))) +
+  geom_point(aes(color=Pasture)) + geom_smooth(method="lm",aes(group=Pasture,color=Pasture),se=F) +
+  facet_wrap(~fullwater) +
+  theme_classic() +
+  labs(x = "Distance from water [m]",y = "log(Dung count per transect)")
+ggplot(data=dungsum[dungsum$Species=="cattle",],aes(x = WaterDist, y = log(meancount + 1))) +
+  geom_point() + geom_smooth(method="lm") +
+  facet_wrap(~fullwater) +
+  theme_classic() +
+  labs(x = "Distance from water [m]",y = "log(Dung count per transect)")
+
+# NMDS of plant communities
+# Create plot by species matrix
+removecodes <- c("N","HL","","WL","W")
+removecodes <- c(removecodes, c("POSE1","ACGR","1","AGR","BRAR5","AG","UG1","US1","UG2","UG3","L","ARAR4","UG-1","UG-2","FP","HN","BTE","POSEE","LECI4","RHW8","FIED","ARRTRV","ARTRRV","FOB","UG01","US-1","UG-1-AS","ACHT7","?????" ,"ARRAR8","BTRE","-","?????????","Pose","POE","NL","ARTWR8","CHUI8","U1VI8","US-EC-1","LEPO2","PUTR3","PUTR4","PUTR5","AGCRR",tempmore)) # revisit for cleaning - some need to be replaced with valid names
+plantspp_long <- lpi %>%
+  pivot_longer(
+    cols = c(TopLayer,LowerLayer1,LowerLayer2,LowerLayer3,LowerLayer4),
+    names_to = "layer",
+    values_to = "sppcode"
+  ) %>%
+  filter(!sppcode %in% removecodes) %>%
+  group_by(PlotID,sppcode) %>%
+  summarise(abundance = n())
+plantspp_wide <- plantspp_long %>%
+  pivot_wider(names_from = sppcode,values_from = abundance,values_fill=0)
+plantspp_matrix <- as.matrix(plantspp_wide[,-1])
+
+# Convert to relative abundance
+plantspp_matrix_rel <- decostand(plantspp_matrix,method="total")
+# Create distance matrix
+plantspp_distmat <- vegdist(plantspp_matrix_rel, method = "bray")
+plantspp_distmat <- as.matrix(plantspp_distmat, labels = T)
+# Run NMDS
+plantspp_NMS <-
+  metaMDS(plantspp_distmat,
+          distance = "bray",
+          k = 3,
+          maxit = 999, 
+          trymax = 500,
+          wascores = TRUE)
+plot(plantspp_NMS, "sites")
+orditorp(plantspp_NMS, "sites")
+
+# Alternative - use community matrix rather than distance matrix?
+plantspp_NMS <- metaMDS(plantspp_matrix_rel)
+# Return to check if defaults are appropriate
+
+# Plot in ggplot so we can code sites, species, etc
+# https://chrischizinski.github.io/rstats/vegan-ggplot2/
+data.scores <- as.data.frame(scores(plantspp_NMS))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
+data.scores$site <- rownames(data.scores)  # create a column of site names, from the rownames of data.scores
+data.scores$PlotID <- plantspp_wide$PlotID  #  add the grp variable created earlier
+head(data.scores)  #look at the data
+species.scores <- as.data.frame(scores(plantspp_NMS, "species"))  #Using the scores function from vegan to extract the species scores and convert to a data.frame
+species.scores$species <- rownames(species.scores)  # create a column of species, from the rownames of species.scores
+head(species.scores)  #look at the data
+
+
+# ggplot() + 
+#   geom_text(data=species.scores,aes(x=NMDS1,y=NMDS2,label=species),alpha=0.5) +  # add the species labels
+#   geom_point(data=data.scores,aes(x=NMDS1,y=NMDS2,shape=PlotID,colour=PlotID),size=3) + # add the point markers
+#   geom_text(data=data.scores,aes(x=NMDS1,y=NMDS2,label=site),size=6,vjust=0) +  # add the site labels
+#   coord_equal() +
+#   theme_bw()
+
+data.scores <- data.scores %>%
+  mutate(Pasture = sapply(strsplit(data.scores$PlotID,split="_"),"[[",1),
+         WaterDist = as.numeric(sapply(strsplit(data.scores$PlotID,split="_"),"[[",2)),
+         Asp = sapply(strsplit(data.scores$PlotID,split="_"),"[[",3)
+  ) %>%
+  #left_join(select(pastures,Pasture,fullwater,FireHistory),by="Pasture")
+  left_join(select(pastures,Pasture,FireHistory,Region),by="Pasture")
+
+# Regional comparison
+ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
+  geom_point(aes(color=Region,shape=Region)) +
+  geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+  theme_classic()
+# Burned vs unburned
+ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
+  geom_point(aes(shape=FireHistory,color=Pasture)) +
+  geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+  theme_classic()
+ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
+  geom_point(aes(color=FireHistory)) +
+  geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+  theme_classic()
+ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
+  geom_point(aes(color=FireHistory)) +
+  #geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+  theme_classic() +
+  facet_wrap(.~Region)
+# WaterDist
+ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
+  geom_point(aes(color=WaterDist)) +
+  geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+  theme_classic()
+ggplot(data=data.scores[data.scores$fullwater==T,],aes(x=NMDS1,y=NMDS2)) +
+  geom_point(aes(color=WaterDist,shape=Pasture)) +
+  geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+  theme_classic()
+# N v S
+ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
+  geom_point(aes(color=Asp)) +
+  geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+  theme_classic()
+ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
+  geom_point(aes(shape=Asp,color=Pasture)) +
+  geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+  theme_classic()
+
+
+plantspp_long_complete <- plantspp_long %>%
+  ungroup %>%
+  complete(PlotID,sppcode,fill=list(abundance = 0))
+
+# Summarize cheatgrass abundance across plots
+plantspp_long_plus <- plantspp_long_complete %>%
+  #ungroup %>%
+  mutate(Pasture = sapply(strsplit(plantspp_long_complete$PlotID,split="_"),"[[",1),
+         WaterDist = as.numeric(sapply(strsplit(plantspp_long_complete$PlotID,split="_"),"[[",2)),
+         Asp = sapply(strsplit(plantspp_long_complete$PlotID,split="_"),"[[",3)
+  ) %>%
+  #left_join(select(pastures,Pasture,fullwater,FireHistory),by="Pasture")
+  left_join(select(pastures,Pasture,FireHistory,Region),by="Pasture")
+
+
+ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRTE",],aes(x=Region,y=abundance,color=FireHistory)) +
+  geom_boxplot()
+
+ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRTE",],aes(x=WaterDist,y=abundance,color=FireHistory)) +
+  geom_point() +
+  facet_wrap(.~Region) +
+  geom_smooth(method=lm)

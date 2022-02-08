@@ -1,20 +1,76 @@
-# Preliminary analysis - just Rome data to test methods, Feb 2022
+# Preliminary analysis - Feb 2022
 library(tidyverse)
 library(ggplot2)
 library(vegan)
+library(GGally)
 
 # Import data
-setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataEntry/PrelimAnalysis/")
-plotdata <- read.csv("GreatBasin2021_PlotData_FebPrelim.csv")
-bunchgrass <- read.csv("GreatBasin2021_BunchgrassQuads_FebPrelim.csv")
-dung <- read.csv("GreatBasin2021_DungCounts_FebPrelim.csv")
-gaps <- read.csv("GreatBasin2021_GapIntercept_FebPrelim.csv")
-lpi <- read.csv("GreatBasin2021_LinePointIntercept_FebPrelim.csv")
-pastures <- read.csv("GreatBasin2021_PastureSheets_FebPrelim.csv")
+setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/")
+plotdata <- read.csv("GreatBasin2021_PlotData.csv")
+bunchgrass <- read.csv("GreatBasin2021_BunchgrassQuads.csv")
+dung <- read.csv("GreatBasin2021_DungCounts.csv")
+gaps <- read.csv("GreatBasin2021_GapIntercept.csv")
+lpi <- read.csv("GreatBasin2021_LinePointIntercept.csv")
+pastures <- read.csv("GreatBasin2021_PastureSheets.csv")
+unknowns <- read.csv("GreatBasin2021_Unknowns.csv")
+soils <- read.csv("GreatBasin2021_SoilAnalysis.csv")
+soilkey <- read.csv("GreatBasin2021_SoilKey.csv")
+funckey <- read.csv("GreatBasin2021_SppFunctionalKey.csv")
 
 # Initial cleaning
-# standardize region names
+# standardize region names and plot codes
 pastures$Region <- recode(pastures$Region, "Steens " = "Steens", "Twin Falls" = "TwinFalls")
+pastures$Pasture[pastures$Pasture=="Keg Springs"] <- "KegSprings"
+lpi$PlotID <- recode(lpi$PlotID, "TerryGulch_500_N"="TerryBasin_500_N","NorthStarMtn_1000_N"="NorthStarMtn1_1000_N","NorthStarMtn_1000_S"="NorthStarMtn1_1000_S")
+plotdata$PlotID <- recode(plotdata$PlotID, "CanalField_1000_N"="CanalField_1000_N_new","WestSagehen_SW_1000_S"="WestSagehenSW_1000_S","LavoyTables_500_N_New"="LavoyTables_500_N_new","CanalField_1000_S"="CanalField_1000_S_backup","CanalField_500_N"="CanalField_500_N_backup")
+dung$PlotID <- recode(dung$PlotID, "JuniperRidgeSouth_1500_S_backup7" = "JuniperRidgeSouth_1500_S_backup","JuniperRidgeSouth_1500_S_backup8" = "JuniperRidgeSouth_1500_S_backup","JuniperRidgeSouth_1500_S_backup9" = "JuniperRidgeSouth_1500_S_backup","JuniperRidgeSouth_1500_S_backup10" = "JuniperRidgeSouth_1500_S_backup","JuniperRidgeSouth_1500_S_backup11" = "JuniperRidgeSouth_1500_S_backup","JuniperRidgeSouth_1500_S_backup12" = "JuniperRidgeSouth_1500_S_backup","JuniperRidgeSouth_1500_S_backup13" = "JuniperRidgeSouth_1500_S_backup","JuniperRidgeSouth_1500_S_backup14" = "JuniperRidgeSouth_1500_S_backup","JuniperRidgeSouth_1500_S_backup15" = "JuniperRidgeSouth_1500_S_backup")
+# combine soil data with plot data
+# NBartlett_1000_N label is duplicated, one is actually 1000_S - placeholder for now, will check with samples in lab
+soilkey$PlotID[9] <- "NBartlett_1000_S"
+soils <- inner_join(soils,soilkey)
+plotdata <- inner_join(plotdata,select(soils,"Sand","Silt","Clay","C","N","OM","PlotID"))
+# standardize herbivore names
+dung$Species <- recode(dung$Species, "Cattle" = "cattle", "Horse" = "horse", "Other" = "other")
+# correct species code errors
+spprecode <- function(x) {
+  recode(x, "AGR" = "AGCR","ACGR" = "AGCR", "POSE1" = "POSE", "BTE"="BRTE", "ARTV"="ARTRV","POSEE"="POSE","LECII4"="LECI4","RHW8"="RHWG","FIED"="FEID","ARRTRV"="ARTRV","ARTRRV"="ARTRV","FOB"="FORB","ACHT7"="ACTH7","BTRE"="BRTE","Pose"="POSE","POE"="POSE","BRAR5"="BRJA","ARTWR8"="ARTRW8","LEPO2"="LEPTO2","CHUI8"="CHVI8","U1VI8"="CHVI8","PUTR3"="PUTR2","PUTR4"="PUTR2","PUTR5"="PUTR2","AGCRR"="AGCR","WC"="WL","CAVI8"="CHVI8","ALTH7"="ACHT7","ERNAIO"="ERNA10","AG"="AGCR","ARTRW8 "="ARTRW8","N "="N","FOEB"="FORB","REID"="FEID","AMALZ"="AMAL2","NEDU"="VEDU","PSS6"="PSSP6","VED4"="VEDU","HELO26"="HECO26","ERAA10"="ERNA10","ACHT7"="ACTH7")
+}
+lpi$TopLayer <- spprecode(lpi$TopLayer)
+lpi$LowerLayer1 <- spprecode(lpi$LowerLayer1)
+lpi$LowerLayer2 <- spprecode(lpi$LowerLayer2)
+lpi$LowerLayer3 <- spprecode(lpi$LowerLayer3)
+lpi$LowerLayer4 <- spprecode(lpi$LowerLayer4)
+lpi$LowerLayer5 <- spprecode(lpi$LowerLayer5)
+lpi$SoilSurface <- spprecode(lpi$SoilSurface)
+# revisit: "1","FP","HN","?????????","JL","H","L","B","AT","ARARW", "UG1AM-0604","US1-AC-0523"
+# replace unknowns with species codes
+unknowns_simple <- unknowns %>%
+  drop_na(Code) %>%
+  filter(RealID!="") %>%
+  select(Code,RealID)
+unknown_replace <- function(x) {
+  for (i in 1:nrow(unknowns_simple)) {
+    x[x==unknowns_simple$Code[i]] <- unknowns_simple$RealID[i]
+  }
+  return(x)
+}
+lpi <- lpi %>%
+  mutate(TopLayer=unknown_replace(TopLayer)) %>%
+  mutate(LowerLayer1=unknown_replace(LowerLayer1)) %>%
+  mutate(LowerLayer2=unknown_replace(LowerLayer2)) %>%
+  mutate(LowerLayer3=unknown_replace(LowerLayer3)) %>%
+  mutate(LowerLayer4=unknown_replace(LowerLayer4)) %>%
+  mutate(LowerLayer5=unknown_replace(LowerLayer5)) %>%
+  mutate(SoilSurface=unknown_replace(SoilSurface))
+# fix erroneous species ID
+lpi$TopLayer[lpi$TopLayer=="VEDU"&lpi$Month==5&lpi$Date<25] <- "BRJA"
+lpi$LowerLayer1[lpi$LowerLayer1=="VEDU"&lpi$Month==5&lpi$Date<25] <- "BRJA"
+lpi$LowerLayer2[lpi$LowerLayer2=="VEDU"&lpi$Month==5&lpi$Date<25] <- "BRJA"
+lpi$LowerLayer3[lpi$LowerLayer3=="VEDU"&lpi$Month==5&lpi$Date<25] <- "BRJA"
+lpi$LowerLayer4[lpi$LowerLayer4=="VEDU"&lpi$Month==5&lpi$Date<25] <- "BRJA"
+lpi$LowerLayer5[lpi$LowerLayer5=="VEDU"&lpi$Month==5&lpi$Date<25] <- "BRJA"
+lpi$SoilSurface[lpi$SoilSurface=="VEDU"&lpi$Month==5&lpi$Date<25] <- "BRJA"
+
 
 # Cattle dung vs distance to water
 dung <- dung %>%
@@ -26,17 +82,18 @@ dung <- dung %>%
 dung$Count <- as.numeric(as.character(dung$Count))
 dungsum <- dung %>%
   group_by(PlotID,Species,Pasture,WaterDist,Asp) %>%
-  summarise(meancount = mean(Count))
+  summarise(meancount = mean(Count)) %>%
+  ungroup()
 
-ggplot(data=dungsum,aes(x = WaterDist, y = meancount)) +
+ggplot(data=dungsum[dungsum$Species=="cattle",],aes(x = WaterDist, y = meancount)) +
   geom_point() + geom_smooth()
-ggplot(data=dungsum,aes(x = WaterDist, y = log(meancount + 1))) +
+ggplot(data=dungsum[dungsum$Species=="cattle",],aes(x = WaterDist, y = log(meancount + 1))) +
   geom_point() + geom_smooth(method="lm") +
   theme_classic()
 
 # Facet by water status
 pastures <- pastures %>%
-  mutate(fullwater = sum(CurrentWater1A,CurrentWater1B,CurrentWater2,na.rm=T))
+  mutate(fullwater = pastures$CurrentWater1A==1|pastures$CurrentWater1B==1|pastures$CurrentWater2==1)
 dungsum <- dungsum %>%
   left_join(select(pastures,Pasture,fullwater),by="Pasture")
 #waterlabels <- c(TRUE = "Water Present", NA = "Dry")
@@ -57,8 +114,8 @@ ggplot(data=dungsum[dungsum$Species=="cattle",],aes(x = WaterDist, y = log(meanc
 
 # NMDS of plant communities
 # Create plot by species matrix
-removecodes <- c("N","HL","","WL","W")
-removecodes <- c(removecodes, c("POSE1","ACGR","1","AGR","BRAR5","AG","UG1","US1","UG2","UG3","L","ARAR4","UG-1","UG-2","FP","HN","BTE","POSEE","LECI4","RHW8","FIED","ARRTRV","ARTRRV","FOB","UG01","US-1","UG-1-AS","ACHT7","?????" ,"ARRAR8","BTRE","-","?????????","Pose","POE","NL","ARTWR8","CHUI8","U1VI8","US-EC-1","LEPO2","PUTR3","PUTR4","PUTR5","AGCRR",tempmore)) # revisit for cleaning - some need to be replaced with valid names
+removecodes <- c("N","HL","","WL","W","NL")
+removecodes <- c(removecodes, c("1","FP","HN","?????????","JL","H","L","B","AT","ARARW", "UG1AM-0604","US1-AC-0523","UG")) # revisit for cleaning - some need to be replaced with valid names
 plantspp_long <- lpi %>%
   pivot_longer(
     cols = c(TopLayer,LowerLayer1,LowerLayer2,LowerLayer3,LowerLayer4),
@@ -116,7 +173,7 @@ data.scores <- data.scores %>%
          Asp = sapply(strsplit(data.scores$PlotID,split="_"),"[[",3)
   ) %>%
   #left_join(select(pastures,Pasture,fullwater,FireHistory),by="Pasture")
-  left_join(select(pastures,Pasture,FireHistory,Region),by="Pasture")
+  left_join(select(pastures,Pasture,FireHistory,Region),by="Pasture") 
 
 # Regional comparison
 ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
@@ -161,21 +218,162 @@ plantspp_long_complete <- plantspp_long %>%
   ungroup %>%
   complete(PlotID,sppcode,fill=list(abundance = 0))
 
-# Summarize cheatgrass abundance across plots
+# Summarize plant species abundance across plots
 plantspp_long_plus <- plantspp_long_complete %>%
-  #ungroup %>%
+  ungroup %>%
   mutate(Pasture = sapply(strsplit(plantspp_long_complete$PlotID,split="_"),"[[",1),
          WaterDist = as.numeric(sapply(strsplit(plantspp_long_complete$PlotID,split="_"),"[[",2)),
          Asp = sapply(strsplit(plantspp_long_complete$PlotID,split="_"),"[[",3)
   ) %>%
-  #left_join(select(pastures,Pasture,fullwater,FireHistory),by="Pasture")
-  left_join(select(pastures,Pasture,FireHistory,Region),by="Pasture")
+  left_join(select(pastures,Pasture,FireHistory,Region,fullwater),by="Pasture") %>%
+  left_join(select(plotdata,PlotID,Elevation,Slope),by="PlotID") %>%
+  left_join(select(dungsum[dungsum$Species=="cattle",],PlotID,meancount),by="PlotID") %>%
+  rename(CattleDung = meancount) %>%
+  left_join(funckey)
+# AGCR presence/absence
+crestedonly <- plantspp_long_plus[plantspp_long_plus$sppcode=="AGCR",]
+crestedonly$Crested <- crestedonly$abundance>0
+plantspp_long_plus <- left_join(plantspp_long_plus,select(crestedonly,PlotID,Crested))
 
-
+# patterns of cheatgrass abundance
 ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRTE",],aes(x=Region,y=abundance,color=FireHistory)) +
   geom_boxplot()
-
 ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRTE",],aes(x=WaterDist,y=abundance,color=FireHistory)) +
   geom_point() +
   facet_wrap(.~Region) +
   geom_smooth(method=lm)
+ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRTE"&plantspp_long_plus$fullwater==T,],aes(x=WaterDist,y=abundance,color=FireHistory)) +
+  geom_point() +
+  facet_wrap(.~Region) +
+  geom_smooth(method=lm)
+ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRTE",],aes(x=CattleDung,y=abundance,color=FireHistory)) +
+  geom_point() +
+  facet_wrap(.~Region) +
+  geom_smooth(method=lm)
+ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRTE",],aes(x=log(CattleDung+1),y=abundance,color=FireHistory)) +
+  geom_point() +
+  facet_wrap(.~Region) +
+  geom_smooth(method=lm)
+ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRTE",],aes(x=log(CattleDung+1),y=abundance,color=FireHistory)) +
+  geom_point() +
+  geom_smooth(method=lm) +
+  labs(y="BRTE abundance")
+ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="TACA8",],aes(x=log(CattleDung+1),y=abundance,color=FireHistory)) +
+  geom_point() +
+  geom_smooth(method=lm) +
+  labs(y="TACA8 abundance")
+ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRJA",],aes(x=log(CattleDung+1),y=abundance,color=FireHistory)) +
+  geom_point() +
+  geom_smooth(method=lm) +
+  labs(y="BRJA abundance")
+ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRTE",],aes(x=log(CattleDung+1),y=abundance,color=FireHistory)) +
+  geom_point() +
+  facet_wrap(.~Region) +
+  geom_smooth(method=lm) +
+  labs(y="BRTE abundance")
+ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="TACA8",],aes(x=log(CattleDung+1),y=abundance,color=FireHistory)) +
+  geom_point() +
+  facet_wrap(.~Region) +
+  geom_smooth(method=lm) +
+  labs(y="TACA8 abundance")
+ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRJA",],aes(x=log(CattleDung+1),y=abundance,color=FireHistory)) +
+  geom_point() +
+  facet_wrap(.~Region) +
+  geom_smooth(method=lm) +
+  labs(y="BRJA abundance")
+
+
+# functional group cover comparisons
+functionalcover <- plantspp_long_plus %>%
+  group_by(PlotID,Pasture,WaterDist,Asp,FireHistory,Region,fullwater,Elevation,Slope,CattleDung,FuncGroup,Crested) %>%
+  # select(PlotID,FuncGroup,sppcode,abundance) %>%
+  # group_by(PlotID,FuncGroup) %>%
+  summarise(abundance = sum(abundance)) %>%
+  ungroup() %>%
+  left_join(select(plotdata,PlotID,Sand,Silt,Clay,C,N))
+
+ggplot(data=functionalcover,aes(x=FuncGroup,y=abundance)) +
+  geom_boxplot()
+ggplot(data=functionalcover,aes(x=Region,y=abundance,color=FuncGroup)) +
+  geom_boxplot()
+ggplot(data=functionalcover,aes(x=FireHistory,y=abundance,color=FuncGroup)) +
+  geom_boxplot() +
+  facet_wrap(.~Region)
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=Elevation,y=abundance,color=FireHistory)) +
+  geom_point()
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=Sand,y=abundance,color=FireHistory)) +
+  geom_point() +
+  geom_smooth()
+ggplot(data=functionalcover,aes(x=FireHistory,y=abundance,color=FuncGroup)) +
+  geom_boxplot() +
+  facet_grid(Crested~Region)
+ggplot(data=functionalcover,aes(x=FireHistory,y=abundance,color=FuncGroup)) +
+  geom_boxplot() +
+  facet_wrap(.~Crested)
+ggplot(data=functionalcover,aes(x=Crested,y=abundance,color=FuncGroup)) +
+  geom_boxplot() +
+  facet_wrap(.~FireHistory)
+ggplot(data=functionalcover,aes(x=Crested,y=abundance,color=FuncGroup)) +
+  geom_boxplot() +
+  facet_grid(FireHistory~Region)
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=log(CattleDung+1),y=abundance,color=FireHistory)) +
+  geom_point() +
+  geom_smooth(method="lm") +
+  labs(y="Annual Grass Abundance")
+summary(lm(abundance~log(CattleDung+1)*FireHistory+Region,data=functionalcover[functionalcover$FuncGroup=="AG",]))
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=log(CattleDung+1),y=abundance,color=FireHistory)) +
+  geom_point() +
+  geom_smooth(method="lm") +
+  facet_wrap(.~Region) +
+  labs(y="Annual Grass Abundance")
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=WaterDist,y=abundance,color=FireHistory)) +
+  geom_point() +
+  geom_smooth(method="lm") +
+  labs(y="Annual Grass Abundance")
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG"&functionalcover$fullwater==T,],aes(x=WaterDist,y=abundance,color=FireHistory)) +
+  geom_point() +
+  geom_smooth(method="lm") +
+  labs(y="Annual Grass Abundance")
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=WaterDist,y=abundance,color=FireHistory)) +
+  geom_point() +
+  geom_smooth(method="lm") +
+  facet_wrap(.~Region) +
+  labs(y="Annual Grass Abundance")
+
+# pasture level summary
+functionalcover_pasture <- functionalcover %>%
+  select(Pasture,FireHistory,Region,fullwater,Elevation,Slope,CattleDung,FuncGroup,Crested,abundance,Sand,Silt,Clay,C,N) %>%
+  group_by(Pasture,FireHistory,Region,fullwater,FuncGroup,Crested) %>%
+  summarise(abundance = mean(abundance),Elevation = mean(Elevation),CattleDung=mean(CattleDung),Slope = mean(Slope),Sand=mean(Sand),Silt=mean(Silt),Clay=mean(Clay),C=mean(C),N=mean(N))
+
+ggplot(data=functionalcover_pasture[functionalcover_pasture$FuncGroup=="AG",],aes(x=CattleDung,y=abundance,color=FireHistory)) +
+  geom_point() +
+  geom_smooth(method="lm") +
+  labs(y="Annual Grass Abundance")
+summary(lm(abundance~CattleDung*FireHistory,data=functionalcover_pasture[functionalcover_pasture$FuncGroup=="AG",]))
+
+ggpairs(select(ungroup(functionalcover_pasture),Elevation,CattleDung,Slope,FireHistory,fullwater,Crested))
+ggpairs(select(ungroup(functionalcover_pasture),Elevation,CattleDung,Slope,FireHistory,fullwater,Crested,Region),aes(color=Region))
+ggpairs(select(ungroup(functionalcover_pasture),Sand,Silt,Clay,C,N))
+ggpairs(select(ungroup(functionalcover_pasture),Sand,Silt,Clay,C,N,Region),aes(color=Region))
+ggpairs(select(ungroup(functionalcover_pasture),Sand,C,N,Elevation,CattleDung,FireHistory))
+ggpairs(select(ungroup(functionalcover_pasture),Sand,C,N,Elevation,CattleDung,FireHistory,Region),aes(color=Region))
+
+
+data.scores <- data.scores %>%
+  left_join(select(crestedonly,PlotID,Crested))
+# Regional comparison
+ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
+  geom_point(aes(color=Region,shape=Region)) +
+  geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+  theme_classic()
+# Burned vs unburned
+ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
+  geom_point(aes(color=FireHistory,shape=Crested)) +
+  geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+  theme_classic()
+ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
+  geom_point(aes(color=FireHistory,shape=Crested)) +
+  #geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+  theme_classic() +
+  facet_wrap(.~Region)

@@ -4,9 +4,11 @@ library(ggplot2)
 library(vegan)
 library(GGally)
 
+# do spatial climate data extraction first
+
 # Import data
 setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/")
-plotdata <- read.csv("GreatBasin2021_PlotData.csv")
+plotdata <- read.csv("GreatBasin2021_PlotData_ClimateAnnotated.csv")
 bunchgrass <- read.csv("GreatBasin2021_BunchgrassQuads.csv")
 dung <- read.csv("GreatBasin2021_DungCounts.csv")
 gaps <- read.csv("GreatBasin2021_GapIntercept.csv")

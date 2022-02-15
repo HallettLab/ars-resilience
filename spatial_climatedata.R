@@ -27,7 +27,7 @@ elev <- raster("ClimateData/USGSElevation10m_mosaic.tif")
 plot(elev)
 
 # import and map raw plot data
-plotdata <- read.csv("GreatBasin2021_PlotData.csv")
+plotdata <- read.csv("FieldData_Cleaned/GreatBasin2021_PlotData.csv")
 plotdata <- mutate(plotdata,Longitude = (-1)*Longitude)
 plotdata$RegionName <- recode(plotdata$RegionName, "Twin Falls" = "TwinFalls")
 
@@ -42,7 +42,7 @@ plotdata[which(plotdata$Latitude>47),]
 plotdata$Latitude[plotdata$PlotID == "BighornWest_1000_S"] <- 42.721142
 plotdata$Latitude[plotdata$PlotID == "SouthSteens2_500_N"] <- 42.665777
 ggplot(aes(x = Longitude, y = Latitude), data = plotdata[plotdata$RegionName=="Steens",]) + geom_text(aes(label = PlotID))
-plotdata$Latitude[plotdata$PlotID == "LavoyTables_500_N_New"] <- 42.81352
+plotdata$Latitude[plotdata$PlotID == "LavoyTables_500_N_new"] <- 42.81352
 ggplot(aes(x = Longitude, y = Latitude), data = plotdata[plotdata$RegionName=="Steens",]) + geom_text(aes(label = PlotID))
 ggplot(aes(x = Longitude, y = Latitude), data = plotdata[plotdata$RegionName=="Riley",]) + geom_text(aes(label = PlotID))
 plotdata$Latitude[plotdata$PlotID == "PalominoNative_1000_S"] <- 43.516521
@@ -69,4 +69,4 @@ ggplot(data=plotdata,aes(x=elev_ned,y=Elevation,color=as.factor(GPSused))) +
   labs(x="Elevation from NED 10 m raster",y="Elevation measured by GPS in field")
 
 # export annotated csv of plot data
-write.csv(plotdata,"GreatBasin2021_PlotData_ClimateAnnotated.csv")
+write.csv(plotdata,"FieldData_Cleaned/GreatBasin2021_PlotData_ClimateAnnotated.csv")

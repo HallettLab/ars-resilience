@@ -41,7 +41,7 @@ dung$Species <- recode(dung$Species, "Cattle" = "cattle", "Horse" = "horse", "Ot
 
 # correct species code errors
 spprecode <- function(x) {
-  recode(x, "AGR" = "AGCR","ACGR" = "AGCR", "POSE1" = "POSE", "BTE"="BRTE", "ARTV"="ARTRV","POSEE"="POSE","LECII4"="LECI4","RHW8"="RHWG","FIED"="FEID","ARRTRV"="ARTRV","ARTRRV"="ARTRV","FOB"="FORB","ACHT7"="ACTH7","BTRE"="BRTE","Pose"="POSE","POE"="POSE","BRAR5"="BRJA","ARTWR8"="ARTRW8","LEPO2"="LEPTO2","CHUI8"="CHVI8","U1VI8"="CHVI8","PUTR3"="PUTR2","PUTR4"="PUTR2","PUTR5"="PUTR2","AGCRR"="AGCR","WC"="WL","CAVI8"="CHVI8","ALTH7"="ACHT7","ERNAIO"="ERNA10","AG"="AGCR","ARTRW8 "="ARTRW8","N "="N","FOEB"="FORB","REID"="FEID","AMALZ"="AMAL2","NEDU"="VEDU","PSS6"="PSSP6","VED4"="VEDU","HELO26"="HECO26","ERAA10"="ERNA10","ACHT7"="ACTH7","ARARW"="ARTRW8")
+  recode(x, "AGR" = "AGCR","ACGR" = "AGCR", "POSE1" = "POSE", "BTE"="BRTE", "ARTV"="ARTRV","POSEE"="POSE","LECII4"="LECI4","RHW8"="RHWG","FIED"="FEID","ARRTRV"="ARTRV","ARTRRV"="ARTRV","FOB"="FORB","ACHT7"="ACTH7","BTRE"="BRTE","Pose"="POSE","POE"="POSE","BRAR5"="BRJA","ARTWR8"="ARTRW8","LEPO2"="LEPTO2","CHUI8"="CHVI8","U1VI8"="CHVI8","PUTR3"="PUTR2","PUTR4"="PUTR2","PUTR5"="PUTR2","AGCRR"="AGCR","WC"="WL","CAVI8"="CHVI8","ALTH7"="ACTH7","ERNAIO"="ERNA10","AG"="AGCR","ARTRW8 "="ARTRW8","N "="N","FOEB"="FORB","REID"="FEID","AMALZ"="AMAL2","NEDU"="VEDU","PSS6"="PSSP6","VED4"="VEDU","HELO26"="HECO26","ERAA10"="ERNA10","ARARW"="ARTRW8")
 }
 lpi$TopLayer <- spprecode(lpi$TopLayer)
 lpi$LowerLayer1 <- spprecode(lpi$LowerLayer1)
@@ -50,7 +50,7 @@ lpi$LowerLayer3 <- spprecode(lpi$LowerLayer3)
 lpi$LowerLayer4 <- spprecode(lpi$LowerLayer4)
 lpi$LowerLayer5 <- spprecode(lpi$LowerLayer5)
 lpi$SoilSurface <- spprecode(lpi$SoilSurface)
-# revisit: "1","FP","HN","?????????","JL","H","L","B","AT","ARARW", "UG1AM-0604","US1-AC-0523"
+
 
 # replace unknowns with species codes
 unknowns_simple <- unknowns %>%

@@ -9,6 +9,7 @@ setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/Fie
 # precipitation and temperature (PRISM 30 year normals)
 ppt <- raster("ClimateData/PRISM_ppt_30yr_normal_800mM3_annual_bil/PRISM_ppt_30yr_normal_800mM3_annual_bil.bil")
 tmean <- raster("ClimateData/PRISM_tmean_30yr_normal_800mM3_annual_bil/PRISM_tmean_30yr_normal_800mM3_annual_bil.bil")
+chili <- raster("ClimateData/CHILI.tif")
 
 # elevation (USDS NED 10 m)
 

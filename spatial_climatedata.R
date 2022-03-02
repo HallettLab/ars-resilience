@@ -32,7 +32,7 @@ plotdata <- read.csv("FieldData_Cleaned/GreatBasin2021_PlotData.csv")
 plotdata <- mutate(plotdata,Longitude = (-1)*Longitude)
 plotdata$RegionName <- recode(plotdata$RegionName, "Twin Falls" = "TwinFalls")
 
-plotpts <- SpatialPoints(select(plotdata,Longitude,Latitude),proj4string = CRS("+proj=longlat +datum=NAD83 +no_defs"))
+plotpts <- SpatialPoints(dplyr::select(plotdata,Longitude,Latitude),proj4string = CRS("+proj=longlat +datum=NAD83 +no_defs"))
 
 plot(ppt)
 plot(plotpts,add=T)
@@ -57,7 +57,7 @@ ggplot(aes(x = Longitude, y = Latitude), data = plotdata[plotdata$RegionName=="T
 ggplot(aes(x = Longitude, y = Latitude), data = plotdata) + geom_point(alpha=0.2)
 
 # make SpatialPoints object with corrected plot data
-plotpts <- SpatialPoints(select(plotdata,Longitude,Latitude),proj4string = CRS("+proj=longlat +datum=NAD83 +no_defs"))
+plotpts <- SpatialPoints(dplyr::select(plotdata,Longitude,Latitude),proj4string = CRS("+proj=longlat +datum=NAD83 +no_defs"))
 
 # extract climate and elevation data from raster data sets
 plotdata$ppt <- raster::extract(ppt,plotpts)

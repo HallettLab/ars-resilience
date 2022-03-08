@@ -57,7 +57,7 @@ ggplot(aes(x = Longitude, y = Latitude), data = plotdata[plotdata$RegionName=="T
 ggplot(aes(x = Longitude, y = Latitude), data = plotdata) + geom_point(alpha=0.2)
 
 # make SpatialPoints object with corrected plot data
-plotpts <- SpatialPoints(dplyr::select(plotdata,Longitude,Latitude),proj4string = CRS("+proj=longlat +datum=NAD83 +no_defs"))
+plotpts <- SpatialPointsDataFrame(dplyr::select(plotdata,Longitude,Latitude),data=plotdata,proj4string = CRS("+proj=longlat +datum=NAD83 +no_defs"))
 
 # extract climate and elevation data from raster data sets
 plotdata$ppt <- raster::extract(ppt,plotpts)
@@ -71,3 +71,6 @@ ggplot(data=plotdata,aes(x=elev_ned,y=Elevation,color=as.factor(GPSused))) +
 
 # export annotated csv of plot data
 write.csv(plotdata,"FieldData_Cleaned/GreatBasin2021_PlotData_ClimateAnnotated.csv")
+
+# save plot pts as shapefile for extracting RAP biomass data
+writeOGR(plotpts,"/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/ClimateData/PlotPts_Shapefile",layer="plots",driver="ESRI Shapefile")

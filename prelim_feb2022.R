@@ -5,6 +5,7 @@ library(vegan)
 library(GGally)
 library(lme4)
 library(MuMIn)
+library(sjPlot)
 
 # do spatial climate data extraction first
 
@@ -193,12 +194,14 @@ crestedonly$Crested <- crestedonly$abundance>0
 plantspp_long_plus <- left_join(plantspp_long_plus,select(crestedonly,PlotID,Crested))
 
 # patterns of cheatgrass abundance
-ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRTE",],aes(x=Region,y=abundance,color=FireHistory)) +
-  geom_boxplot()
+ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRTE",],aes(x=Region,y=abundance/150,color=FireHistory)) +
+  geom_boxplot() +
+  labs(y="Cheatgrass fractional cover")
 ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRTE",],aes(x=WaterDist,y=abundance,color=FireHistory)) +
   geom_point() +
   facet_wrap(.~Region) +
-  geom_smooth(method=lm)
+  geom_smooth(method=lm) +
+  labs(y="Cheatgrass fractional cover")
 ggplot(data=plantspp_long_plus[plantspp_long_plus$sppcode=="BRTE"&plantspp_long_plus$fullwater==T,],aes(x=WaterDist,y=abundance,color=FireHistory)) +
   geom_point() +
   facet_wrap(.~Region) +
@@ -248,6 +251,7 @@ functionalcover <- plantspp_long_plus %>%
   summarise(abundance = sum(abundance)) %>%
   ungroup() %>%
   left_join(select(plotdata,PlotID,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned))
+
 
 ggplot(data=functionalcover,aes(x=FuncGroup,y=abundance)) +
   geom_boxplot()
@@ -1002,3 +1006,62 @@ ggplot(data=agresponse,aes(x=elev_ned,y=Cor)) +
   geom_smooth(method="lm") +
   theme_classic() +
   labs(x="Elevation [m]", y="Correlation between annual grass cover and total dung")
+
+# 3d plots?
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=logtotaldung,y=abundance/150,color=Asp)) +
+  geom_point() +
+  geom_smooth(method="lm")
+
+sjPlot::plot_model(bestmodel2)
+
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=logtotaldung,y=elev_ned,z=abundance/150)) +
+  stat_summary_2d(bins=5) +
+  scale_fill_gradientn(colors = c('#ffffe5','#fff7bc','#fee391','#fec44f','#fe9929','#ec7014','#cc4c02','#8c2d04'))
+
+
+# elevation interactions
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=elev_ned,y=abundance/150,color=FireHistory)) +
+  geom_point() + 
+  geom_smooth(method="lm") +
+  labs(y="Annual Grass Total Fractional Cover",x="Elevation [m]")
+
+
+cutN <- function(X , n = 4){
+  cut(X ,include.lowest = TRUE,breaks = quantile(X, probs = (0:n)/n,na.rm = TRUE))
+  }
+
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=elev_ned,y=abundance/150,color=cutN(logtotaldung,n=2))) +
+  geom_point() + 
+  geom_smooth(method="lm") +
+  labs(y="Annual Grass Total Fractional Cover",x="Elevation [m]") +
+  facet_wrap(.~Region)
+ggplot(data=functionalcover,aes(x=Crested,y=abundance/150,color=FuncGroup)) +
+  geom_boxplot() +
+  facet_wrap(.~FireHistory) +
+  labs(y="Total Fractional Cover",x="Crested Wheatgrass Present") +
+  theme_classic()
+
+
+# add grazing index column
+functionalcover <- functionalcover %>%
+  ungroup %>%
+  mutate(GrazeIndexSum = 1-functionalcover$WaterDist/1500 + logtotaldung/max(logtotaldung)) %>%
+  mutate(GrazeIndexProd = (1-functionalcover$WaterDist/1500)*(logtotaldung/max(logtotaldung)))
+
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=GrazeIndexSum,y=abundance/150)) +geom_point() +
+  geom_smooth(method="lm") 
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=GrazeIndexSum,y=log(abundance+1))) +geom_point() +
+  geom_smooth(method="lm")
+
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=elev_ned,y=abundance/150,color=cutN(GrazeIndexSum))) +
+  geom_point() + 
+  geom_smooth(method="lm") +
+  labs(y="Annual Grass Total Fractional Cover",x="Elevation [m]")
+
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=GrazeIndexSum,y=abundance/150)) +geom_point() +
+  geom_smooth(method="lm") +
+  labs(y="Annual Grass Total Fractional Cover")
+ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=GrazeIndexSum,y=log(abundance+1))) +geom_point() +
+  geom_smooth(method="lm") +
+  labs(y="Log-transformed AG cover")
+       

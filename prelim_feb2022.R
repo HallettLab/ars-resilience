@@ -25,10 +25,7 @@ funckey <- read.csv("GreatBasin2021_SppFunctionalKey.csv")
 plotdata$PastureName <- recode(plotdata$PastureName, "SouthSteens" = "SouthSteens2","Canal Field" = "CanalField","SouthSteens "="SouthSteens2") # re-run cleaning script to update saved files with this
 plotdata <- left_join(plotdata,select(pastures,Pasture,Region,FireHistory),by=c("PastureName" = "Pasture"))
 
-gaps <- mutate(gaps,gapsize=End-Start)
-# cleaning and summary steps on gaps: 
-# find too large or too small gaps and check on data sheets
-# eliminate nonsensical data
+# gap intercept new analyses
 # summarize: total gap per transect and plot, median gap size per transect and plot
 
 # Cattle dung vs distance to water ----

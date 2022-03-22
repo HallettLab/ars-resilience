@@ -82,6 +82,18 @@ lpi$LowerLayer4[lpi$LowerLayer4=="VEDU"&lpi$Month==5&lpi$Date<25] <- "BRJA"
 lpi$LowerLayer5[lpi$LowerLayer5=="VEDU"&lpi$Month==5&lpi$Date<25] <- "BRJA"
 lpi$SoilSurface[lpi$SoilSurface=="VEDU"&lpi$Month==5&lpi$Date<25] <- "BRJA"
 
+# check gap intercept data
+gaps <- mutate(gaps,gapsize=End-Start)
+# cleaning and summary steps on gaps: 
+# remove extraneous "X" columns
+gaps <- select(gaps,-starts_with("X"))
+# find too large or too small gaps and check on data sheets
+hist(gaps$gapsize)
+gaps[which(gaps$gapsize>2500),]
+gaps[which(gaps$gapsize<20),]
+# any gaps of impossible size, checked against data sheets and fixed in master_checked and raw csv, re-imported here
+
+
 # export corrected data
 setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/FieldData_Cleaned")
 write.csv(plotdata,"GreatBasin2021_PlotData.csv")

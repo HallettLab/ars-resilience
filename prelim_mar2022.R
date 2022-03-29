@@ -424,7 +424,9 @@ env <- functional_wide %>%
   left_join(select(crestedonly,PlotID,Crested)) %>%
   left_join(select(dungsum[dungsum$Species=="cattle",],PlotID,meancount),by="PlotID") %>%
   rename(CattleDung = meancount) %>%
-  select(WaterDist,Asp,FireHistory,Region,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung)
+  left_join(gapsummary) %>%
+  left_join(select(dungsum_all,PlotID,totaldung)) %>%
+  select(WaterDist,Asp,FireHistory,Region,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung,totaldung,totalgap,mediangap,meangap,maxgap)
 en <- envfit(functional_nms, env, permutations = 999, na.rm = TRUE)
 en_coord_cont = as.data.frame(scores(en, "vectors")) * 4 #* ordiArrowMul(en)
 en_coord_cat = as.data.frame(scores(en, "factors")) * 4 #* ordiArrowMul(en)
@@ -604,7 +606,8 @@ env_agcr <- functional_wide_agcr %>%
   left_join(select(crestedonly,PlotID,Crested)) %>%
   left_join(select(dungsum[dungsum$Species=="cattle",],PlotID,meancount),by="PlotID") %>%
   rename(CattleDung = meancount) %>%
-  select(WaterDist,Asp,FireHistory,Region,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung)
+  left_join(select(dungsum_all,PlotID,totaldung)) %>%
+  select(WaterDist,Asp,FireHistory,Region,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung,totaldung)
 en_agcr <- envfit(functional_nms_agcr, env_agcr, permutations = 999, na.rm = TRUE)
 en_coord_cont_agcr = as.data.frame(scores(en_agcr, "vectors")) * 4 #* ordiArrowMul(en)
 en_coord_cat_agcr = as.data.frame(scores(en_agcr, "factors")) * 4 #* ordiArrowMul(en)
@@ -620,7 +623,8 @@ env_noagcr <- functional_wide_noagcr %>%
   left_join(select(crestedonly,PlotID,Crested)) %>%
   left_join(select(dungsum[dungsum$Species=="cattle",],PlotID,meancount),by="PlotID") %>%
   rename(CattleDung = meancount) %>%
-  select(WaterDist,Asp,FireHistory,Region,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung)
+  left_join(select(dungsum_all,PlotID,totaldung)) %>%
+  select(WaterDist,Asp,FireHistory,Region,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung,totaldung)
 en_noagcr <- envfit(functional_nms_noagcr, env_noagcr, permutations = 999, na.rm = TRUE)
 en_coord_cont_noagcr = as.data.frame(scores(en_noagcr, "vectors")) * 4 #* ordiArrowMul(en)
 en_coord_cat_noagcr = as.data.frame(scores(en_noagcr, "factors")) * 4 #* ordiArrowMul(en)
@@ -951,6 +955,10 @@ dredge(fullmodel2)
 bestmodel2 <- lmer(abundance ~ Asp + elev_ned + FireHistory + logtotaldung + ppt + tmean + Asp*logtotaldung + elev_ned*logtotaldung + ppt*logtotaldung + (1|Region/Pasture),data=functionalcover_scaledAG,na.action="na.fail")
 summary(bestmodel2)
 
+## trying to include fire and grazing interactions in one model - don't do this, too much for R to handle and probably very underpowered
+# fullmodel_firegraze <- lmer(abundance ~ (elev_ned + ppt + tmean + Sand + Asp)*logtotaldung*FireHistory + (1|Region/Pasture),data=functionalcover_scaledAG,na.action="na.fail")
+# dredge(fullmodel_firegraze)
+
 
 ggplot(data=functionalcover_scaledAG,aes(x=FireHistory,y=abundance)) +
   geom_boxplot()
@@ -990,6 +998,16 @@ fullmodel3 <- lmer(abundance ~ (FireHistory + elev_ned + ppt + tmean + Sand)*log
 dredge(fullmodel3)
 bestmodel3 <- lmer(abundance ~ elev_ned + FireHistory + logtotaldung + ppt + Sand + tmean + FireHistory*logtotaldung + elev_ned*logtotaldung + tmean*logtotaldung + Sand*logtotaldung + (1|Region),data=functionalcover_pasture_scaledAG,na.action="na.fail")
 summary(bestmodel3)
+
+# separate models for burned and unburned
+functionalcover_scaledAG_burn <- functionalcover_scaledAG[functionalcover_scaledAG$FireHistory=="Burned",]
+fullmodel_burn <- lmer(abundance ~ (elev_ned + ppt + tmean + Sand + Asp)*logtotaldung + (1|Region/Pasture),data=functionalcover_scaledAG_burn,na.action="na.fail",REML=F)
+dredge(fullmodel_burn)
+bestmodel_burn <- lmer(abundance ~ ppt + (1|Region/Pasture),data=functionalcover_scaledAG_burn,na.action="na.fail",REML=T)
+
+functionalcover_scaledAG_noburn <- functionalcover_scaledAG[functionalcover_scaledAG$FireHistory=="Unburned",]
+fullmodel_noburn <- lmer(abundance ~ (elev_ned + ppt + tmean + Sand + Asp)*logtotaldung + (1|Region/Pasture),data=functionalcover_scaledAG_noburn,na.action="na.fail",REML=T)
+dredge(fullmodel_noburn)
 
 
 # figures to back up ESA abstract
@@ -1069,12 +1087,52 @@ ggplot(data=functionalcover[functionalcover$FuncGroup=="AG",],aes(x=GrazeIndexSu
 
 # visualize gap data, other functional groups, bare ground
 ## map gap variables onto functional group ordination
+# done - above - gap variables all associated with shrubs
+
 ## gap size distributions for binned communities
+gaps_annotated <- gaps %>%
+  mutate(Pasture = sapply(strsplit(gaps$PlotID,split="_"),"[[",1),
+         WaterDist = as.numeric(sapply(strsplit(gaps$PlotID,split="_"),"[[",2)),
+         Asp = sapply(strsplit(gaps$PlotID,split="_"),"[[",3)
+  ) %>%
+  left_join(select(pastures,Pasture,FireHistory,Region,fullwater),by="Pasture") %>%
+  left_join(select(plotdata,PlotID,Elevation,Slope,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned),by="PlotID") %>%
+  left_join(select(dungsum[dungsum$Species=="cattle",],PlotID,meancount),by="PlotID") %>%
+  rename(CattleDung = meancount) %>%
+  left_join(select(dungsum_all,PlotID,totaldung))
+
+ggplot(data=gaps_annotated,aes(x=gapsize,color=FireHistory)) +
+  geom_density()
+ggplot(data=gaps_annotated,aes(x=log(gapsize),color=FireHistory)) +
+  geom_density()
+ggplot(data=gaps_annotated,aes(x=log(gapsize),color=Asp)) +
+  geom_density()
+ggplot(data=gaps_annotated,aes(x=log(gapsize),color=cutN(elev_ned))) +
+  geom_density()
+ggplot(data=gaps_annotated,aes(x=log(gapsize),color=as.factor(WaterDist))) +
+  geom_density()
+ggplot(data=filter(gaps_annotated,WaterDist==500|WaterDist==1000|WaterDist==1500),aes(x=log(gapsize),color=as.factor(WaterDist))) +
+  geom_density()
+ggplot(data=gaps_annotated,aes(x=log(gapsize),color=cutN(totaldung))) +
+  geom_density()
+ggplot(data=gaps_annotated,aes(x=log(gapsize),color=cutN(totaldung))) +
+  geom_density() +
+  facet_wrap(.~FireHistory)
+
+
+
 ## gap variables vs grazing variables
+ggplot(data=env,aes(x=log(CattleDung),y=totalgap)) + geom_point()
+ggplot(data=env,aes(x=log(totaldung),y=totalgap,color=FireHistory)) + geom_point() 
+
 ## other functional groups vs env and grazing variables
 ## bare ground vs env and grazing variables
 
 # ordination of environmental variables
+z <- prcomp( ~ WaterDist + Asp + FireHistory + Region + Sand + Silt + Clay + C + N + ppt + tmean + elev_ned + Crested + CattleDung + totalgap, data = env, scale=TRUE)
+# pca only numerical variables
+
+
 # separate mixed effects model in burned vs unburned pastures
 # mixed effects effect size plot
 

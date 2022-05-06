@@ -25,7 +25,7 @@ chili <- raster("ClimateData/CHILI.tif")
 
 # import existing elevation raster mosaic once made
 elev <- raster("ClimateData/USGSElevation10m_mosaic.tif")
-plot(elev)
+#plot(elev)
 
 # import and map raw plot data
 plotdata <- read.csv("FieldData_Cleaned/GreatBasin2021_PlotData.csv")
@@ -63,6 +63,18 @@ plotpts <- SpatialPointsDataFrame(dplyr::select(plotdata,Longitude,Latitude),dat
 plotdata$ppt <- raster::extract(ppt,plotpts)
 plotdata$tmean <- raster::extract(tmean,plotpts)
 plotdata$elev_ned <- raster::extract(elev,plotpts)
+
+# import heat load index rasters and extract values for plot points
+hlifiles <- list.files("ClimateData/HeatLoadIndex",pattern=".tif$")
+hli1 <- raster(paste0("ClimateData/HeatLoadIndex/",hlifiles)[1])
+hli1_pts <- raster::extract(hli1,plotpts)
+hlivals <- matrix(nrow=length(plotpts),ncol=length(hlifiles))
+for (i in 1:length(hlifiles)) {
+  hlitemp <- raster(paste0("ClimateData/HeatLoadIndex/",hlifiles)[i])
+  hlivals[,i] <- raster::extract(hlitemp,plotpts)
+}
+hlivals[hlivals==0] <- NA
+plotdata$hli <- rowMeans(hlivals,na.rm=T)
 
 # visualize difference between field-measured and raster elevation values
 ggplot(data=plotdata,aes(x=elev_ned,y=Elevation,color=as.factor(GPSused))) +

@@ -76,6 +76,19 @@ for (i in 1:length(hlifiles)) {
 hlivals[hlivals==0] <- NA
 plotdata$hli <- rowMeans(hlivals,na.rm=T)
 
+# import topo distance rasters and extract values for plot points
+topodistfiles <- list.files("ClimateData/TopoDistIndex",pattern=".tif$")
+topodist1 <- raster(paste0("ClimateData/TopoDistIndex/",topodistfiles)[1])
+topodist1_pts <- raster::extract(topodist1,plotpts)
+topodistvals <- matrix(nrow=length(plotpts),ncol=length(topodistfiles))
+for (i in 1:length(topodistfiles)) {
+  topodisttemp <- raster(paste0("ClimateData/TopoDistIndex/",topodistfiles)[i])
+  topodistvals[,i] <- raster::extract(topodisttemp,plotpts)
+}
+topodistvals[topodistvals==0] <- NA
+plotdata$topodist <- rowMeans(topodistvals,na.rm=T)
+
+
 # visualize difference between field-measured and raster elevation values
 ggplot(data=plotdata,aes(x=elev_ned,y=Elevation,color=as.factor(GPSused))) +
   geom_point() +

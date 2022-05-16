@@ -24,6 +24,10 @@ funckey <- read.csv("GreatBasin2021_SppFunctionalKey.csv")
 plotdata$PastureName <- recode(plotdata$PastureName, "SouthSteens" = "SouthSteens2","Canal Field" = "CanalField","SouthSteens "="SouthSteens2") # re-run cleaning script to update saved files with this
 plotdata <- left_join(plotdata,select(pastures,Pasture,Region,FireHistory),by=c("PastureName" = "Pasture"))
 
+plotdata <- plotdata %>%
+  mutate(WaterDist = as.numeric(sapply(strsplit(plotdata$PlotID,split="_"),"[[",2)),
+         Asp = sapply(strsplit(plotdata$PlotID,split="_"),"[[",3))
+
 # Import AUM data and pasture areas
 aum <- read.csv("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/AUMData_Raw/AUMData_Combined.csv")
 pastureshapes <- read.csv("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/FieldData_Raw/GreatBasin2021_PastureShapes.csv")
@@ -71,7 +75,8 @@ ggplot(data=dungsum[dungsum$Species=="cattle",],aes(x = WaterDist, y = log(meanc
 
 # Facet by water status
 pastures <- pastures %>%
-  mutate(fullwater = pastures$CurrentWater1A==1|pastures$CurrentWater1B==1|pastures$CurrentWater2==1)
+  mutate(fullwater = ifelse(pastures$CurrentWater1A==1|pastures$CurrentWater1B==1|pastures$CurrentWater2==1,1,0)) %>%
+  mutate(fullwater = ifelse(is.na(fullwater), 0, fullwater))
 dungsum <- dungsum %>%
   left_join(select(pastures,Pasture,fullwater),by="Pasture")
 
@@ -88,7 +93,12 @@ aum <- left_join(aum,dungsum_pasturecows)
 # Pasture level summary - plot average total cattle dung vs AUM, or vs AUM/acre
 ggplot(data=aum_avg,aes(x=aum_peracre_5yrmean,y=dung_avg)) +
   geom_point() +
-  labs(x="5 year mean AUM/acre", y="Average plot-level dung count")
+  labs(x="5 year mean AUM/acre", y="Average plot-level dung count") +
+  geom_smooth(method="lm")
+ggplot(data=aum_avg,aes(x=aum_peracre_5yrmean,y=log(dung_avg))) +
+  geom_point() +
+  labs(x="5 year mean AUM/acre", y="Average plot-level dung count (log-transformed)") +
+  geom_smooth(method="lm")
 ggplot(data=aum_sum[aum_sum$Year==2021,],aes(x=aum_peracre,y=dung_avg)) +
   geom_point() +
   labs(x="2021 AUM/acre", y="Average plot-level dung count")
@@ -101,3 +111,78 @@ ggplot(data=aum_avg,aes(x=aum_5yrmean,y=dung_avg)) +
 ggplot(data=aum_avg,aes(x=aum_peracre_5yrmax,y=dung_avg)) +
   geom_point() +
   labs(x="5 year max yearly AUM/acre", y="Average plot-level dung count")
+
+summary(lm(dung_avg ~ aum_peracre_5yrmean, data=aum_avg))
+summary(lm(log(dung_avg) ~ aum_peracre_5yrmean, data=aum_avg))
+# Average dung count within a pasture reflects 5 year mean AUM reasonably well - use it as a proxy for AUMs, rather than incorporating in analysis?
+
+# Dung vs topo cost distance from water
+dungsum_all <- left_join(dungsum_all,select(plotdata,PlotID,topodist)) %>%
+  left_join(select(pastures,Pasture,fullwater),by="Pasture")
+
+# plot level dung counts vs topo distance from water
+ggplot(data=dungsum_all,aes(x=topodist,y=totaldung)) +
+  geom_point()
+ggplot(data=dungsum_all,aes(x=topodist,y=log(totaldung+1))) +
+  geom_point()
+ggplot(data=dungsum_all,aes(x=log(topodist),y=log(totaldung+1))) +
+  geom_point()
+
+# normalized by pasture-level dung, dung counts vs topo distance
+dungsum_all <- dungsum_all %>%
+  group_by(Pasture) %>%
+  mutate(pasturedung = mean(totaldung)) %>%
+  ungroup() %>%
+  mutate(reldung = totaldung/pasturedung)
+
+ggplot(data=dungsum_all,aes(x=topodist,y=reldung)) +
+  geom_point()
+ggplot(data=dungsum_all,aes(x=topodist,y=log(reldung + 1))) +
+  geom_point()
+ggplot(data=dungsum_all,aes(x=log(topodist),y=log(reldung+1))) +
+  geom_point()
+
+# separated by type of water source
+ggplot(data=dungsum_all,aes(x=topodist,y=totaldung)) +
+  geom_point() +
+  facet_wrap(~fullwater) +
+  geom_smooth(method="lm")
+ggplot(data=dungsum_all,aes(x=topodist,y=log(totaldung+1))) +
+  geom_point() +
+  facet_wrap(~fullwater) +
+  geom_smooth(method="lm")
+ggplot(data=dungsum_all,aes(x=log(topodist),y=log(totaldung+1))) +
+  geom_point() +
+  facet_wrap(~fullwater) +
+  geom_smooth(method="lm")
+
+ggplot(data=dungsum_all,aes(x=topodist,y=reldung)) +
+  geom_point() +
+  facet_wrap(~fullwater) +
+  geom_smooth(method="lm")
+ggplot(data=dungsum_all,aes(x=topodist,y=log(reldung + 1))) +
+  geom_point() +
+  facet_wrap(~fullwater) +
+  geom_smooth(method="lm")
+ggplot(data=dungsum_all,aes(x=log(topodist),y=log(reldung+1))) +
+  geom_point() +
+  facet_wrap(~fullwater) +
+  geom_smooth(method="lm")
+
+summary(lm(log(totaldung+1)~topodist*fullwater,data=dungsum_all))
+summary(lm(log(totaldung+1)~topodist+fullwater,data=dungsum_all))
+summary(lm(log(reldung+1)~topodist*fullwater,data=dungsum_all))
+summary(lm(log(reldung+1)~topodist+fullwater,data=dungsum_all))
+
+summary(lm(log(totaldung+1)~log(topodist)*fullwater,data=dungsum_all))
+summary(lm(log(totaldung+1)~log(topodist)+fullwater,data=dungsum_all))
+summary(lm(log(reldung+1)~log(topodist)*fullwater,data=dungsum_all))
+summary(lm(log(reldung+1)~log(topodist)+fullwater,data=dungsum_all))
+
+# how different is topo dist from actual dist?
+ggplot(data=plotdata,aes(x=WaterDist,y=topodist,color=Region)) +
+  geom_jitter()
+
+# how closely does HLI align with aspect?
+ggplot(data=plotdata,aes(x=Asp,y=hli)) +
+  geom_boxplot()

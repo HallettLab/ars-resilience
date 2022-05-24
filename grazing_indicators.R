@@ -99,6 +99,11 @@ ggplot(data=aum_avg,aes(x=aum_peracre_5yrmean,y=log(dung_avg))) +
   geom_point() +
   labs(x="5 year mean AUM/acre", y="Average plot-level dung count (log-transformed)") +
   geom_smooth(method="lm")
+ggplot(data=aum_avg,aes(x=aum_peracre_5yrmean,y=dung_avg)) +
+  geom_point() +
+  scale_y_log10() +
+  labs(x="5 year mean AUM/acre", y="Average plot-level dung count (log axis)") +
+  geom_smooth(method="lm")
 ggplot(data=aum_sum[aum_sum$Year==2021,],aes(x=aum_peracre,y=dung_avg)) +
   geom_point() +
   labs(x="2021 AUM/acre", y="Average plot-level dung count")

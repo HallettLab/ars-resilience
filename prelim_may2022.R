@@ -6,6 +6,8 @@ library(GGally)
 library(lme4)
 library(MuMIn)
 library(sjPlot)
+library(jtools)
+library(broom.mixed)
 
 # do data cleaning and spatial climate data extraction first
 
@@ -245,7 +247,7 @@ functionalcover <- plantspp_long_plus %>%
   # group_by(PlotID,FuncGroup) %>%
   summarise(abundance = sum(abundance)) %>%
   ungroup() %>%
-  left_join(select(plotdata,PlotID,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned)) %>%
+  left_join(select(plotdata,PlotID,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,hli,topodist)) %>%
   left_join(gapsummary) %>%
   left_join(select(dungsum_all,PlotID,totaldung))
 
@@ -420,13 +422,13 @@ env <- functional_wide %>%
   ) %>%
   #left_join(select(pastures,Pasture,fullwater,FireHistory),by="Pasture")
   left_join(select(pastures,Pasture,FireHistory,Region),by="Pasture") %>%
-  left_join(select(plotdata,PlotID,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned)) %>%
+  left_join(select(plotdata,PlotID,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,hli,topodist)) %>%
   left_join(select(crestedonly,PlotID,Crested)) %>%
   left_join(select(dungsum[dungsum$Species=="cattle",],PlotID,meancount),by="PlotID") %>%
   rename(CattleDung = meancount) %>%
   left_join(gapsummary) %>%
   left_join(select(dungsum_all,PlotID,totaldung)) %>%
-  select(WaterDist,Asp,FireHistory,Region,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung,totaldung,totalgap,mediangap,meangap,maxgap)
+  select(WaterDist,Asp,FireHistory,Region,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung,totaldung,totalgap,mediangap,meangap,maxgap,hli,topodist)
 en <- envfit(functional_nms, env, permutations = 999, na.rm = TRUE)
 en_coord_cont = as.data.frame(scores(en, "vectors")) * 4 #* ordiArrowMul(en)
 en_coord_cat = as.data.frame(scores(en, "factors")) * 4 #* ordiArrowMul(en)
@@ -438,10 +440,15 @@ data.scores.f <- data.scores.f %>%
   ) %>%
   #left_join(select(pastures,Pasture,fullwater,FireHistory),by="Pasture")
   left_join(select(pastures,Pasture,FireHistory,Region),by="Pasture") %>%
-  left_join(select(plotdata,PlotID,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned)) %>%
+  left_join(select(plotdata,PlotID,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,hli,topodist)) %>%
   left_join(select(crestedonly,PlotID,Crested)) %>%
   left_join(select(dungsum[dungsum$Species=="cattle",],PlotID,meancount),by="PlotID") %>%
-  rename(CattleDung = meancount)
+  rename(CattleDung = meancount) %>%
+  left_join(select(dungsum_all,PlotID,totaldung))
+
+data.scores.f.all <- data.scores.f
+data.scores.f.all$Region <- "ALL"
+data.scores.f.plusall <- rbind(data.scores.f,data.scores.f.all)
 
 # NMDS functional group plots -----
 # Environmental vectors
@@ -472,6 +479,11 @@ ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
   geom_text(data=species.scores.f,aes(label=species)) +
   theme_classic()
 ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+  geom_point(aes(color=FireHistory)) +
+  geom_text(data=species.scores.f,aes(label=species)) +
+  theme_classic() +
+  facet_wrap(.~Region)
+ggplot(data=data.scores.f.plusall,aes(x=NMDS1,y=NMDS2)) +
   geom_point(aes(color=FireHistory)) +
   geom_text(data=species.scores.f,aes(label=species)) +
   theme_classic() +
@@ -932,12 +944,14 @@ ggplot(data=agresponse,aes(x=Cor,y=abundance)) +
 ggplot(data=agresponse,aes(x=Sand,y=abundance)) +
   geom_point()
 
+### Statistical analyses ----
+
 
 # Overall mixed effects model
 functionalcover <- functionalcover %>%
   mutate(logtotaldung = log(totaldung+1)) 
 functionalcoverAG <- functionalcover[functionalcover$FuncGroup == "AG",]
-fullmodel <- lmer(abundance ~ (FireHistory + elev_ned + ppt + tmean + Sand + Asp)*logtotaldung + (1|Region/Pasture),data=functionalcoverAG,na.action="na.fail")
+fullmodel <- lmer(abundance ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logtotaldung + (1|Region/Pasture),data=functionalcoverAG,na.action="na.fail")
 dredge(fullmodel)
 bestmodel <- lmer(abundance ~ Asp + FireHistory + logtotaldung + tmean + Asp*logtotaldung + FireHistory*logtotaldung + (1|Region/Pasture),data=functionalcoverAG,na.action="na.fail")
 summary(bestmodel)
@@ -948,12 +962,93 @@ functionalcover_scaled <- functionalcover %>%
          logtotaldung=scale(logtotaldung,center=T,scale=T),
          tmean = scale(tmean,center=T,scale=T),
          elev_ned = scale(elev_ned,center=T,scale=T),
-         Sand = scale(Sand,center=T,scale=T))
+         Sand = scale(Sand,center=T,scale=T),
+         hli = scale(hli,center=T,scale=T),
+         topodist = scale(topodist,center=T,scale=T),
+         FireHistory = factor(FireHistory,levels=c("Unburned","Burned")))
 functionalcover_scaledAG <- functionalcover_scaled[functionalcover_scaled$FuncGroup == "AG",]
-fullmodel2 <- lmer(abundance ~ (FireHistory + elev_ned + ppt + tmean + Sand + Asp)*logtotaldung + (1|Region/Pasture),data=functionalcover_scaledAG,na.action="na.fail")
+fullmodel2 <- lmer(abundance ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logtotaldung + (1|Region/Pasture),data=functionalcover_scaledAG,na.action="na.fail",REML=F)
 dredge(fullmodel2)
 bestmodel2 <- lmer(abundance ~ Asp + elev_ned + FireHistory + logtotaldung + ppt + tmean + Asp*logtotaldung + elev_ned*logtotaldung + ppt*logtotaldung + (1|Region/Pasture),data=functionalcover_scaledAG,na.action="na.fail")
 summary(bestmodel2)
+
+# Overall mixed effects model with NMDS axes
+data.scores.f.scaled <- data.scores.f %>%
+  mutate(logtotaldung = log(totaldung+1)) %>%
+  mutate(ppt = scale(ppt,center=T,scale=T),
+         logtotaldung=scale(logtotaldung,center=T,scale=T),
+         tmean = scale(tmean,center=T,scale=T),
+         elev_ned = scale(elev_ned,center=T,scale=T),
+         Sand = scale(Sand,center=T,scale=T),
+         hli = scale(hli,center=T,scale=T),
+         topodist = scale(topodist,center=T,scale=T),
+         FireHistory = factor(FireHistory,levels=c("Unburned","Burned")))
+
+fullmodel.nmds1 <- lmer(NMDS1 ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logtotaldung + (1|Pasture),data=data.scores.f.scaled,na.action="na.fail",REML=F)
+dredge(fullmodel.nmds1)
+bestmodel.nmds1.1 <- lmer(NMDS1 ~ (FireHistory + elev_ned + hli + logtotaldung) + (1|Pasture),data=data.scores.f.scaled,na.action="na.fail",REML=T)
+summary(bestmodel.nmds1.1)
+sjPlot::plot_model(bestmodel.nmds1.1) +
+  geom_text(x=4.2,y=-0.75,label="Annual",color="black") +
+  geom_text(x=4.2,y=0.75,label="Perennial",color="black")
+bestmodel.nmds1.2 <- lmer(NMDS1 ~ (FireHistory + hli*logtotaldung) + (1|Pasture),data=data.scores.f.scaled,na.action="na.fail",REML=T)
+summary(bestmodel.nmds1.2)
+sjPlot::plot_model(bestmodel.nmds1.2)
+
+fullmodel.nmds2 <- lmer(NMDS2 ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logtotaldung + (1|Pasture),data=data.scores.f.scaled,na.action="na.fail",REML=F)
+dredge(fullmodel.nmds2)
+bestmodel.nmds2 <- lmer(NMDS2 ~ (FireHistory + elev_ned + hli + logtotaldung) + (1|Pasture),data=data.scores.f.scaled,na.action="na.fail",REML=T)
+summary(bestmodel.nmds2)
+sjPlot::plot_model(bestmodel.nmds2,colors="Set2") +
+  geom_text(x=4.2,y=-0.75,label="Woody",color="black") +
+  geom_text(x=4.2,y=0.75,label="Herbaceous",color="black")
+  
+
+# NMDS models burned and unburned only
+data.scores.f.scaled.burn <- data.scores.f.scaled[data.scores.f.scaled$FireHistory=="Burned",]
+data.scores.f.scaled.noburn <- data.scores.f.scaled[data.scores.f.scaled$FireHistory=="Unburned",]
+fullmodel.nmds1.burn <- lmer(NMDS1 ~ (elev_ned + ppt + tmean + Sand + hli)*logtotaldung + (1|Pasture),data=data.scores.f.scaled.burn,na.action="na.fail",REML=F)
+dredge(fullmodel.nmds1.burn)
+# just elevation
+bestmodel.nmds1.burn <- lmer(NMDS1 ~ elev_ned + (1|Pasture),data=data.scores.f.scaled.burn,na.action="na.fail",REML=T)
+summary(bestmodel.nmds1.burn)
+sjPlot::plot_model(bestmodel.nmds1.burn) +
+  geom_text(x=0.5,y=-0.75,label="Annual",color="black") +
+  geom_text(x=0.5,y=0.75,label="Perennial",color="black")
+
+fullmodel.nmds1.noburn <- lmer(NMDS1 ~ (elev_ned + ppt + tmean + Sand + hli)*logtotaldung + (1|Pasture),data=data.scores.f.scaled.noburn,na.action="na.fail",REML=F)
+dredge(fullmodel.nmds1.noburn)
+# hli + dung + sand + hli*dung + sand*dung
+bestmodel.nmds1.noburn.1 <- lmer(NMDS1 ~ hli*logtotaldung + Sand*logtotaldung + (1|Pasture),data=data.scores.f.scaled.noburn,na.action="na.fail",REML=T)
+summary(bestmodel.nmds1.noburn.1)
+sjPlot::plot_model(bestmodel.nmds1.noburn.1) +
+  geom_text(x=5.2,y=-0.75,label="Annual",color="black") +
+  geom_text(x=5.2,y=0.75,label="Perennial",color="black")
+# OR hli + dung + precip + hli*dung + precip*dung
+bestmodel.nmds1.noburn.2 <- lmer(NMDS1 ~ hli*logtotaldung + ppt*logtotaldung + (1|Pasture),data=data.scores.f.scaled.noburn,na.action="na.fail",REML=T)
+summary(bestmodel.nmds1.noburn.2)
+sjPlot::plot_model(bestmodel.nmds1.noburn.2)
+
+fullmodel.nmds2.burn <- lmer(NMDS2 ~ (elev_ned + ppt + tmean + Sand + hli)*logtotaldung + (1|Pasture),data=data.scores.f.scaled.burn,na.action="na.fail",REML=F)
+dredge(fullmodel.nmds2.burn)
+# hli + precip + sand
+bestmodel.nmds2.burn.1 <- lmer(NMDS2 ~ ppt + Sand + hli + (1|Pasture),data=data.scores.f.scaled.burn,na.action="na.fail",REML=T)
+summary(bestmodel.nmds2.burn.1)
+sjPlot::plot_model(bestmodel.nmds2.burn.1,colors="Set2") +
+  geom_text(x=3.2,y=-0.75,label="Woody",color="black") +
+  geom_text(x=3.2,y=0.75,label="Herbaceous",color="black")
+# OR elev + hli + sand
+bestmodel.nmds2.burn.2 <- lmer(NMDS2 ~ elev_ned + Sand + hli + (1|Pasture),data=data.scores.f.scaled.burn,na.action="na.fail",REML=T)
+summary(bestmodel.nmds2.burn.2)
+
+fullmodel.nmds2.noburn <- lmer(NMDS2 ~ (elev_ned + ppt + tmean + Sand + hli)*logtotaldung + (1|Pasture),data=data.scores.f.scaled.noburn,na.action="na.fail",REML=F)
+dredge(fullmodel.nmds2.noburn)
+# hli + dung + sand
+bestmodel.nmds2.noburn <- lmer(NMDS2 ~ logtotaldung + Sand + hli + (1|Pasture),data=data.scores.f.scaled.burn,na.action="na.fail",REML=T)
+summary(bestmodel.nmds2.noburn)
+sjPlot::plot_model(bestmodel.nmds2.noburn,colors="Set2") +
+  geom_text(x=3.2,y=-0.75,label="Woody",color="black") +
+  geom_text(x=3.2,y=0.75,label="Herbaceous",color="black")
 
 ## trying to include fire and grazing interactions in one model - don't do this, too much for R to handle and probably very underpowered
 # fullmodel_firegraze <- lmer(abundance ~ (elev_ned + ppt + tmean + Sand + Asp)*logtotaldung*FireHistory + (1|Region/Pasture),data=functionalcover_scaledAG,na.action="na.fail")
@@ -1001,14 +1096,21 @@ summary(bestmodel3)
 
 # separate models for burned and unburned
 functionalcover_scaledAG_burn <- functionalcover_scaledAG[functionalcover_scaledAG$FireHistory=="Burned",]
-fullmodel_burn <- lmer(abundance ~ (elev_ned + ppt + tmean + Sand + Asp)*logtotaldung + (1|Region/Pasture),data=functionalcover_scaledAG_burn,na.action="na.fail",REML=F)
+fullmodel_burn <- lmer(abundance ~ (elev_ned + ppt + tmean + Sand + hli)*logtotaldung + (1|Region/Pasture),data=functionalcover_scaledAG_burn,na.action="na.fail",REML=F)
 dredge(fullmodel_burn)
 bestmodel_burn <- lmer(abundance ~ ppt + (1|Region/Pasture),data=functionalcover_scaledAG_burn,na.action="na.fail",REML=T)
+summary(bestmodel_burn)
+
+fullmodel_burn <- lmer(abundance ~ (elev_ned + ppt + tmean + Sand + hli)*logtotaldung + (1|Pasture),data=functionalcover_scaledAG_burn,na.action="na.fail",REML=F)
+dredge(fullmodel_burn)
+bestmodel_burn <- lmer(abundance ~ ppt + (1|Pasture),data=functionalcover_scaledAG_burn,na.action="na.fail",REML=T)
+summary(bestmodel_burn)
 
 functionalcover_scaledAG_noburn <- functionalcover_scaledAG[functionalcover_scaledAG$FireHistory=="Unburned",]
-fullmodel_noburn <- lmer(abundance ~ (elev_ned + ppt + tmean + Sand + Asp)*logtotaldung + (1|Region/Pasture),data=functionalcover_scaledAG_noburn,na.action="na.fail",REML=T)
+fullmodel_noburn <- lmer(abundance ~ (elev_ned + ppt + tmean + Sand + hli)*logtotaldung + (1|Pasture),data=functionalcover_scaledAG_noburn,na.action="na.fail",REML=F)
 dredge(fullmodel_noburn)
-
+bestmodel_noburn <- lmer(abundance ~ hli + (1|Region/Pasture),data=functionalcover_scaledAG_burn,na.action="na.fail",REML=T)
+summary(bestmodel_noburn)
 
 # figures to back up ESA abstract
 ggplot(data=functionalcover,aes(x=FireHistory,y=abundance/150,color=FuncGroup)) +

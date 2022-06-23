@@ -258,7 +258,7 @@ species.scores.f$species <- rownames(species.scores.f)
 head(species.scores.f)
 
 env_matrix <- env %>%
-  select(WaterDist,Asp,FireHistory,Region,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung,totaldung,hli,topodist)
+  select(WaterDist,FireHistory,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung,totaldung,hli,topodist)
 en <- envfit(functional_nms, env_matrix, permutations = 999, na.rm = TRUE)
 en_coord_cont = as.data.frame(scores(en, "vectors")) * 4 #* ordiArrowMul(en)
 en_coord_cat = as.data.frame(scores(en, "factors")) * 4 #* ordiArrowMul(en)
@@ -374,5 +374,22 @@ ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
 
 
 ## Single species and single functional group multivariate analyses ----
+functionalcover_plus <- functionalcover_plus %>%
+  mutate(logtotaldung = log(totaldung+1))
+functionalcover_scaled <- functionalcover_plus %>%
+  mutate(ppt = scale(ppt,center=T,scale=T),
+         logtotaldung=scale(logtotaldung,center=T,scale=T),
+         tmean = scale(tmean,center=T,scale=T),
+         elev_ned = scale(elev_ned,center=T,scale=T),
+         Sand = scale(Sand,center=T,scale=T),
+         hli = scale(hli,center=T,scale=T),
+         topodist = scale(topodist,center=T,scale=T),
+         FireHistory = factor(FireHistory,levels=c("Unburned","Burned")))
+functionalcover_scaledAG <- functionalcover_scaled[functionalcover_scaled$FuncGroup == "AG",]
 
+functionalcover_scaledAG_b.c <- functionalcover_scaledAG[functionalcover_scaledAG$PlotID %in% plotnames_b_c,]
+functionalcover_scaledAG_b.n <- functionalcover_scaledAG[functionalcover_scaledAG$PlotID %in% plotnames_b_n,]
+functionalcover_scaledAG_u.c <- functionalcover_scaledAG[functionalcover_scaledAG$PlotID %in% plotnames_u_c,]
+functionalcover_scaledAG_u.n <- functionalcover_scaledAG[functionalcover_scaledAG$PlotID %in% plotnames_u_n,]
 
+# next: binomial model for presence/absence + linear model for abundance given presence

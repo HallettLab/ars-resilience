@@ -375,7 +375,8 @@ ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
 
 ## Single species and single functional group multivariate analyses ----
 functionalcover_plus <- functionalcover_plus %>%
-  mutate(logtotaldung = log(totaldung+1))
+  mutate(logtotaldung = log(totaldung+1),
+         logcattledung = log(CattleDung+1))
 functionalcover_scaled <- functionalcover_plus %>%
   mutate(ppt = scale(ppt,center=T,scale=T),
          logtotaldung=scale(logtotaldung,center=T,scale=T),
@@ -386,10 +387,352 @@ functionalcover_scaled <- functionalcover_plus %>%
          topodist = scale(topodist,center=T,scale=T),
          FireHistory = factor(FireHistory,levels=c("Unburned","Burned")))
 functionalcover_scaledAG <- functionalcover_scaled[functionalcover_scaled$FuncGroup == "AG",]
+functionalcover_scaledPG <- functionalcover_scaled[functionalcover_scaled$FuncGroup == "PG",]
+functionalcover_scaledS <- functionalcover_scaled[functionalcover_scaled$FuncGroup == "S",]
+
+plantspp_long_plus <- plantspp_long_plus %>%
+  mutate(logtotaldung = log(totaldung+1),
+         logcattledung = log(CattleDung+1))
+plantspp_scaled <- plantspp_long_plus %>%
+  mutate(ppt = scale(ppt,center=T,scale=T),
+         logtotaldung=scale(logtotaldung,center=T,scale=T),
+         tmean = scale(tmean,center=T,scale=T),
+         elev_ned = scale(elev_ned,center=T,scale=T),
+         Sand = scale(Sand,center=T,scale=T),
+         hli = scale(hli,center=T,scale=T),
+         topodist = scale(topodist,center=T,scale=T),
+         FireHistory = factor(FireHistory,levels=c("Unburned","Burned")))
+BRTE_scaled <- plantspp_scaled[plantspp_scaled$sppcode=="BRTE",]
 
 functionalcover_scaledAG_b.c <- functionalcover_scaledAG[functionalcover_scaledAG$PlotID %in% plotnames_b_c,]
 functionalcover_scaledAG_b.n <- functionalcover_scaledAG[functionalcover_scaledAG$PlotID %in% plotnames_b_n,]
 functionalcover_scaledAG_u.c <- functionalcover_scaledAG[functionalcover_scaledAG$PlotID %in% plotnames_u_c,]
 functionalcover_scaledAG_u.n <- functionalcover_scaledAG[functionalcover_scaledAG$PlotID %in% plotnames_u_n,]
 
-# next: binomial model for presence/absence + linear model for abundance given presence
+# AG cover, BRTE cover, are zero-inflated
+# remove zeroes, log-transform, looks more normal
+hist(functionalcover_scaledAG$cover)
+hist(log(functionalcover_scaledAG$cover))
+hist(log(functionalcover_scaledAG$cover+0.01))
+sum(functionalcover_scaledAG$cover == 0)
+hist(BRTE_scaled$cover)
+hist(log(BRTE_scaled$cover))
+hist(log(BRTE_scaled$cover+0.01))
+sum(BRTE_scaled$cover == 0)
+# perennials look like they are less in need of transformation
+hist(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="PG"])
+hist(log(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="PG"]))
+hist(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="S"])
+hist(log(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="S"]))
+# forbs look best when log transformed
+hist(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="F"])
+hist(log(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="F"]))
+# are there large numbers of plots without presence of particular groups?
+sum(functionalcover_scaledAG$cover == 0) # AG yes
+sum(BRTE_scaled$cover == 0) # BRTE yes
+sum(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="PG"]==0) # none without PG
+sum(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="S"]==0) # shrub yes
+sum(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="F"]==0) # forb borderline
+
+
+# next: binomial model for presence/absence + linear model for log abundance given presence?
+# decide what to do about question mark presences
+
+# AG model only where AG is present
+functionalcover_scaledAG_pres <- functionalcover_scaledAG[functionalcover_scaledAG$cover>0,]
+functionalcover_scaledAG_pres$logcover <- log(functionalcover_scaledAG_pres$cover)
+AGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=functionalcover_scaledAG_pres,na.action="na.fail",REML=F)
+dredge(AGcover_fullmodel) # best model: elevation and HLI
+# with crested as variable
+AGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=functionalcover_scaledAG_pres,na.action="na.fail",REML=F)
+dredge(AGcover_fullmodel) # best model: crested, elevation, HLI
+
+# BRTE model only where BRTE is present
+BRTE_scaled_pres <- BRTE_scaled[BRTE_scaled$cover>0,]
+BRTE_scaled_pres$logcover <- log(BRTE_scaled_pres$cover)
+BRTEcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=BRTE_scaled_pres,na.action="na.fail",REML=F)
+dredge(BRTEcover_fullmodel) # best model: HLI*grazing
+# with crested as variable
+BRTEcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=BRTE_scaled_pres,na.action="na.fail",REML=F)
+dredge(BRTEcover_fullmodel) # best model: crested, HLI, ppt
+# nested by region and pasture - singular
+BRTEcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Region/Pasture),data=BRTE_scaled_pres,na.action="na.fail",REML=F)
+dredge(BRTEcover_fullmodel)
+
+# PG model
+functionalcover_scaledPG$logcover <- log(functionalcover_scaledPG$cover)
+PGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=functionalcover_scaledPG,na.action="na.fail",REML=F)
+dredge(PGcover_fullmodel) # best model: fire history, HLI, ppt
+# with crested as variable
+PGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=functionalcover_scaledPG,na.action="na.fail",REML=F)
+dredge(PGcover_fullmodel) # best model: crested, fire, HLI, ppt
+
+# shrub model only where shrubs are present
+functionalcover_scaledS_pres <- functionalcover_scaledS[functionalcover_scaledS$cover>0,]
+functionalcover_scaledS_pres$logcover <- log(functionalcover_scaledS_pres$cover)
+Scover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=functionalcover_scaledS_pres,na.action="na.fail",REML=F)
+dredge(Scover_fullmodel) # best model: fire history, HLI, ppt
+# with crested as variable
+Scover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=functionalcover_scaledS_pres,na.action="na.fail",REML=F)
+dredge(Scover_fullmodel)
+
+### Abiotic PCs ----
+abiotic.pca <- prcomp(select(plotdata,Sand,Silt,Clay,ppt,tmean,elev_ned,hli,topodist), center = TRUE,scale. = TRUE)
+summary(abiotic.pca)
+plot(abiotic.pca)
+biplot(abiotic.pca)
+abiotic.pca.pasture <- prcomp(select(functionalcover_pasture_plus,Sand,Silt,Clay,ppt,tmean,elev_ned,hli,topodist), center = TRUE,scale. = TRUE)
+summary(abiotic.pca.pasture)
+plot(abiotic.pca.pasture)
+biplot(abiotic.pca.pasture)
+
+## Pasture level analyses - zoomed out approach ----
+
+# Single variable relationships
+ggplot(functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",], aes(x=FireHistory,y=log(cover))) +
+  geom_boxplot()
+ggplot(functionalcover_pasture_plus, aes(x=FuncGroup,y=log(cover+0.01),color=FireHistory)) +
+  geom_boxplot()
+ggplot(functionalcover_pasture_plus, aes(x=FuncGroup,y=log(cover+0.01),color=FireHistory)) +
+  geom_boxplot() +
+  facet_wrap(.~Crested)
+ggplot(functionalcover_pasture_plus, aes(x=log(CattleDung+1),y=log(cover+0.01),color=Crested)) +
+  geom_point() +
+  facet_wrap(.~FuncGroup) +
+  geom_smooth(method="lm")
+ggplot(functionalcover_pasture_plus, aes(x=ppt,y=log(cover+0.01))) +
+  geom_point() +
+  facet_wrap(.~FuncGroup) +
+  geom_smooth(method="lm")
+ggplot(functionalcover_pasture_plus, aes(x=elev_ned,y=log(cover+0.01))) +
+  geom_point() +
+  facet_wrap(.~FuncGroup) +
+  geom_smooth(method="lm")  
+ggplot(functionalcover_pasture_plus, aes(x=Sand,y=log(cover+0.01))) +
+  geom_point() +
+  facet_wrap(.~FuncGroup) +
+  geom_smooth(method="lm")
+ggplot(functionalcover_pasture_plus, aes(x=log(CattleDung+1),y=log(cover+0.01))) +
+  geom_point() +
+  facet_wrap(.~FuncGroup) +
+  geom_smooth(method="lm")
+ggplot(functionalcover_pasture_plus, aes(x=tmean,y=log(cover+0.01))) +
+  geom_point() +
+  facet_wrap(.~FuncGroup) +
+  geom_smooth(method="lm")
+
+# variables need to be scaled for interaction terms
+functionalcover_pasture_plus <- functionalcover_pasture_plus %>%
+  mutate(logcattledung = log(CattleDung + 1)) 
+functionalcover_pasture_scaled <- functionalcover_pasture_plus %>%
+  ungroup() %>%
+  mutate(ppt = scale(ppt,center=T,scale=T),
+         logcattledung=scale(logcattledung,center=T,scale=T),
+         tmean = scale(tmean,center=T,scale=T),
+         elev_ned = scale(elev_ned,center=T,scale=T),
+         Sand = scale(Sand,center=T,scale=T),
+         FireHistory = factor(FireHistory,levels=c("Unburned","Burned")))
+functionalcover_pasture_scaledAG <- functionalcover_pasture_scaled[functionalcover_pasture_scaled$FuncGroup == "AG",]
+functionalcover_pasture_scaledPG <- functionalcover_pasture_scaled[functionalcover_pasture_scaled$FuncGroup == "PG",]
+functionalcover_pasture_scaledS <- functionalcover_pasture_scaled[functionalcover_pasture_scaled$FuncGroup == "S",]
+
+res <- cor(functionalcover_pasture_plus[,c("ppt","logcattledung","tmean","elev_ned","Sand","Silt","Clay","C","N")])
+round(res, 2)
+
+pasturemodel_AG_full <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand + Crested),data=functionalcover_pasture_scaledAG,na.action="na.fail")
+dredge(pasturemodel_AG_full)
+# Crested + elevation is best model
+summary(lm(log(cover+0.01) ~ elev_ned + Crested,data=functionalcover_pasture_plus_AG,na.action="na.fail"))
+pasturemodel_AG_full <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledAG,na.action="na.fail")
+dredge(pasturemodel_AG_full)
+# without crested, elev + sand is best model (but fire history and cattle dung also in top models)
+
+# Decision: communities with Crested are qualitatively different - split into crested and non-crested subsets for analysis
+
+functionalcover_pasture_scaledAG_c <- functionalcover_pasture_scaledAG[functionalcover_pasture_scaledAG$Crested==T,]
+functionalcover_pasture_scaledAG_n <- functionalcover_pasture_scaledAG[functionalcover_pasture_scaledAG$Crested==F,]
+
+pasturemodel_AG_full_crested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledAG_c,na.action="na.fail")
+dredge(pasturemodel_AG_full_crested) # ppt + sand, followed by elev*dung
+AGcrestedbestmodel <- lm(log(cover+0.01) ~ ppt + Sand,data=functionalcover_pasture_scaledAG_c,na.action="na.fail")
+AGcrestedbestmodel2 <- lm(log(cover+0.01) ~ elev_ned*logcattledung,data=functionalcover_pasture_scaledAG_c,na.action="na.fail")
+pasturemodel_AG_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledAG_n,na.action="na.fail")
+dredge(pasturemodel_AG_full_nocrested) # elevation, dung, temp, temp*dung
+AGnocrestedbestmodel <- lm(log(cover+0.01) ~ logcattledung*tmean + elev_ned,data=functionalcover_pasture_scaledAG_n,na.action="na.fail")
+
+functionalcover_pasture_scaledPG_c <- functionalcover_pasture_scaledPG[functionalcover_pasture_scaledPG$Crested==T,]
+functionalcover_pasture_scaledPG_n <- functionalcover_pasture_scaledPG[functionalcover_pasture_scaledPG$Crested==F,]
+
+pasturemodel_PG_full_crested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledPG_c,na.action="na.fail")
+dredge(pasturemodel_PG_full_crested) # fire history or precip
+PGcrestedbestmodel1 <- lm(log(cover+0.01) ~ FireHistory ,data=functionalcover_pasture_scaledPG_c,na.action="na.fail")
+PGcrestedbestmodel2 <- lm(log(cover+0.01) ~ ppt ,data=functionalcover_pasture_scaledPG_c,na.action="na.fail")
+pasturemodel_PG_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledPG_n,na.action="na.fail")
+dredge(pasturemodel_PG_full_nocrested) # elev, fire history, ppt, sand, tmean
+PGnocrestedbestmodel <- lm(log(cover+0.01) ~ elev_ned + ppt + tmean + FireHistory + Sand,data=functionalcover_pasture_scaledPG_n,na.action="na.fail")
+
+functionalcover_pasture_scaledS_c <- functionalcover_pasture_scaledS[functionalcover_pasture_scaledS$Crested==T,]
+functionalcover_pasture_scaledS_n <- functionalcover_pasture_scaledS[functionalcover_pasture_scaledS$Crested==F,]
+
+pasturemodel_S_full_crested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledS_c,na.action="na.fail")
+dredge(pasturemodel_S_full_crested) # fire history, precip, tmean
+Screstedbestmodel <- lm(log(cover+0.01) ~ FireHistory + ppt + tmean,data=functionalcover_pasture_scaledS_c,na.action="na.fail")
+pasturemodel_S_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledS_n,na.action="na.fail")
+dredge(pasturemodel_S_full_nocrested) # just fire history
+Snocrestedbestmodel <- lm(log(cover+0.01) ~ FireHistory,data=functionalcover_pasture_scaledS_n,na.action="na.fail")
+
+
+### Plots - pasture-level variables ----
+
+agcolors <- c('#ffffb2','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#b10026')
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=FireHistory,y=cover)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=agcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=elev_ned,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=agcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=ppt,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=agcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=tmean,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=agcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=Sand,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=agcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=logcattledung,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=agcolors) +
+  scale_shape_manual(values=c(21,24))
+
+pgcolors <- c('#ffffcc','#d9f0a3','#addd8e','#78c679','#41ab5d','#238443','#005a32')
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=FireHistory,y=cover)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=pgcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=elev_ned,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=pgcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=ppt,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=pgcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=tmean,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=pgcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=Sand,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=pgcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=logcattledung,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=pgcolors) +
+  scale_shape_manual(values=c(21,24))
+
+shrubcolors <- c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177')
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=FireHistory,y=cover)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=elev_ned,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=ppt,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=tmean,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=Sand,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24))
+ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=logcattledung,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24))

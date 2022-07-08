@@ -10,6 +10,7 @@ library(MuMIn)
 library(sjPlot)
 library(jtools)
 library(broom.mixed)
+library(cowplot)
 
 # Import data ----
 setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/FieldData_Cleaned")
@@ -526,6 +527,7 @@ functionalcover_pasture_plus <- functionalcover_pasture_plus %>%
   mutate(logcattledung = log(CattleDung + 1)) 
 functionalcover_pasture_scaled <- functionalcover_pasture_plus %>%
   ungroup() %>%
+  group_by(FuncGroup) %>%
   mutate(ppt = scale(ppt,center=T,scale=T),
          logcattledung=scale(logcattledung,center=T,scale=T),
          tmean = scale(tmean,center=T,scale=T),
@@ -585,154 +587,891 @@ Snocrestedbestmodel <- lm(log(cover+0.01) ~ FireHistory,data=functionalcover_pas
 ### Plots - pasture-level variables ----
 
 agcolors <- c('#ffffb2','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#b10026')
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=FireHistory,y=cover)) +
+AGpasturep1 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=FireHistory,y=cover)) +
   geom_boxplot() +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Fire History",y = element_blank()) +
+  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=agcolors) +
   scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=elev_ned,y=cover)) +
+AGpasturep2 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=elev_ned,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Elevation (m)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=agcolors) +
-  scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=ppt,y=cover)) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F))
+AGpasturep3 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=ppt,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual precipitation (mm)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=agcolors) +
-  scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=tmean,y=cover)) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==T))
+AGpasturep4 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=tmean,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual temperature (degrees C)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=agcolors) +
-  scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=Sand,y=cover)) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F)) +
+  geom_smooth(method="lm",se=F,color="#cccccc",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&logcattledung<median(logcattledung))) +
+  geom_smooth(method="lm",se=F,color="black",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&logcattledung>median(logcattledung)))
+AGpasturep5 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=Sand,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Soil Sand Content (%)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=agcolors) +
-  scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=logcattledung,y=cover)) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==T))
+AGpasturep6 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=logcattledung,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Log-transformed cattle dung count (log[dung per plot + 1])",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=agcolors) +
-  scale_shape_manual(values=c(21,24))
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F)) +
+  geom_smooth(method="lm",se=F,color="#cccccc",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&tmean<median(tmean))) +
+  geom_smooth(method="lm",se=F,color="black",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&tmean>median(tmean)))
+
+agplots_regional <- plot_grid(AGpasturep1,AGpasturep2,AGpasturep3,AGpasturep4,AGpasturep5,AGpasturep6,nrow=3)
 
 pgcolors <- c('#ffffcc','#d9f0a3','#addd8e','#78c679','#41ab5d','#238443','#005a32')
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=FireHistory,y=cover)) +
+PGpasturep1 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=FireHistory,y=cover)) +
   geom_boxplot() +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Fire History",y = element_blank()) +
+  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=pgcolors) +
   scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=elev_ned,y=cover)) +
+PGpasturep2 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=elev_ned,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Elevation (m)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=pgcolors) +
-  scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=ppt,y=cover)) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="PG"&Crested==F))
+PGpasturep3 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=ppt,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual precipitation (mm)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=pgcolors) +
-  scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=tmean,y=cover)) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777")
+PGpasturep4 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=tmean,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual temperature (degrees C)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=pgcolors) +
-  scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=Sand,y=cover)) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="PG"&Crested==F))
+PGpasturep5 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=Sand,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Soil sand content (%)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=pgcolors) +
-  scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=logcattledung,y=cover)) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="PG"&Crested==F))
+PGpasturep6 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG",],aes(x=logcattledung,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Log-transformed cattle dung count (log[dung per plot + 1])",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=pgcolors) +
   scale_shape_manual(values=c(21,24))
 
+pgplots_regional <- plot_grid(PGpasturep1,PGpasturep2,PGpasturep3,PGpasturep4,PGpasturep5,PGpasturep6,nrow=3)
+
 shrubcolors <- c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177')
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=FireHistory,y=cover)) +
+Spasturep1 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=FireHistory,y=cover)) +
   geom_boxplot() +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Fire history",y = element_blank()) +
+  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=shrubcolors) +
   scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=elev_ned,y=cover)) +
+Spasturep2 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=elev_ned,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Elevation (m)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=shrubcolors) +
   scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=ppt,y=cover)) +
+Spasturep3 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=ppt,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual precipitation (mm)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=shrubcolors) +
-  scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=tmean,y=cover)) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="S"&Crested==T))
+Spasturep4 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=tmean,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual temperature (degrees C)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=shrubcolors) +
-  scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=Sand,y=cover)) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="S"&Crested==T))
+Spasturep5 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=Sand,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Soil sand content (%)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=shrubcolors) +
   scale_shape_manual(values=c(21,24))
-ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=logcattledung,y=cover)) +
+Spasturep6 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S",],aes(x=logcattledung,y=cover)) +
   scale_y_log10() +
   facet_wrap(.~Crested) +
   theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Log-transformed cattle dung count (log[dung per plot + 1])",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
   scale_fill_gradientn(colours=shrubcolors) +
   scale_shape_manual(values=c(21,24))
+
+shrubplots_regional <- plot_grid(Spasturep1,Spasturep2,Spasturep3,Spasturep4,Spasturep5,Spasturep6,nrow=3)
+
+
+### Zoom in - what determines heterogeneity within pastures? ----
+# make new dataframe with local-scale variables, then standardize grazing and soil to pasture
+functional_localhet <- functionalcover_plus[,c("PlotID","FuncGroup","cover","Pasture","Slope","Sand","hli","topodist","logcattledung","Crested","FireHistory","WaterDist")] %>%
+  mutate(logcover = log(cover+0.01)) %>%
+  group_by(Pasture,FuncGroup) %>%
+  mutate(logcattledev = logcattledung-mean(logcattledung),
+         sanddev = Sand-mean(Sand),
+         logcoverdev = logcover-mean(logcover),
+         topodistindex = sqrt(topodist),
+         logslope = log(Slope))
+
+# Predict potential log cover from pasture-level linear models
+PGpredict <- cbind(functionalcover_pasture_scaledPG_c$Pasture,predict(PGcrestedbestmodel1)) %>%
+  rbind(cbind(functionalcover_pasture_scaledPG_n$Pasture,predict(PGnocrestedbestmodel))) %>%
+  data.frame %>%
+  rename(Pasture = X1, potential = X2) %>%
+  mutate(potential=as.numeric(as.character(potential)),FuncGroup = "PG")
+
+AGpredict <- cbind(functionalcover_pasture_scaledAG_c$Pasture,predict(AGcrestedbestmodel)) %>%
+  rbind(cbind(functionalcover_pasture_scaledAG_n$Pasture,predict(AGnocrestedbestmodel))) %>%
+  data.frame %>%
+  rename(Pasture = X1, potential = X2) %>%
+  mutate(potential=as.numeric(as.character(potential)),FuncGroup = "AG")  
+
+Spredict <- cbind(functionalcover_pasture_scaledS_c$Pasture,predict(Screstedbestmodel)) %>%
+  rbind(cbind(functionalcover_pasture_scaledS_n$Pasture,predict(Snocrestedbestmodel))) %>%
+  data.frame %>%
+  rename(Pasture = X1, potential = X2) %>%
+  mutate(potential=as.numeric(as.character(potential)),FuncGroup = "S")                       
+AG_localhet <- functional_localhet %>%
+  ungroup() %>%
+  filter(FuncGroup=="AG") %>%
+  left_join(AGpredict)
+PG_localhet <- functional_localhet %>%
+  ungroup() %>%
+  filter(FuncGroup=="PG") %>%
+  left_join(PGpredict)
+S_localhet <- functional_localhet %>%
+  ungroup() %>%
+  filter(FuncGroup=="S") %>%
+  left_join(Spredict)
+
+ggplot(data=AG_localhet,aes(x=sanddev,y=logcoverdev)) +
+  geom_point() +
+  facet_grid(FireHistory ~ Crested)
+ggplot(data=AG_localhet,aes(x=logcattledev,y=logcoverdev)) +
+  geom_point() +
+  facet_grid(FireHistory ~ Crested)
+ggplot(data=AG_localhet,aes(x=topodistindex,y=logcoverdev)) +
+  geom_point() +
+  facet_grid(FireHistory ~ Crested)
+ggplot(data=AG_localhet,aes(x=hli,y=logcoverdev)) +
+  geom_point() +
+  facet_grid(FireHistory ~ Crested)
+ggplot(data=AG_localhet,aes(x=log(Slope),y=logcoverdev)) +
+  geom_point() +
+  facet_grid(FireHistory ~ Crested)
+ggplot(data=AG_localhet,aes(x=potential,y=logcoverdev)) +
+  geom_point() +
+  facet_grid(FireHistory ~ Crested)
+ggplot(data=AG_localhet,aes(x=WaterDist,y=logcoverdev)) +
+  geom_point() +
+  facet_grid(FireHistory ~ Crested)
+
+ggplot(data=AG_localhet,aes(x=sanddev,y=logcoverdev)) +
+  geom_point(aes(color=potential))
+ggplot(data=AG_localhet,aes(x=logcattledev,y=logcoverdev)) +
+  geom_point(aes(color=potential))
+ggplot(data=AG_localhet,aes(x=topodistindex,y=logcoverdev)) +
+  geom_point(aes(color=potential))
+ggplot(data=AG_localhet,aes(x=hli,y=logcoverdev)) +
+  geom_point(aes(color=potential))
+ggplot(data=AG_localhet,aes(x=log(Slope),y=logcoverdev)) +
+  geom_point(aes(color=potential))
+ggplot(data=AG_localhet,aes(x=potential,y=logcoverdev)) +
+  geom_point(aes(color=potential))
+
+ggplot(data=PG_localhet,aes(x=sanddev,y=logcoverdev)) +
+  geom_point() +
+  facet_wrap(. ~ Crested)
+ggplot(data=PG_localhet,aes(x=logcattledev,y=logcoverdev)) +
+  geom_point() +
+  facet_wrap(. ~ Crested)
+ggplot(data=PG_localhet,aes(x=topodistindex,y=logcoverdev)) +
+  geom_point() +
+  facet_wrap(. ~ Crested)
+ggplot(data=PG_localhet,aes(x=hli,y=logcoverdev)) +
+  geom_point() +
+  facet_wrap(. ~ Crested)
+ggplot(data=PG_localhet,aes(x=log(Slope),y=logcoverdev)) +
+  geom_point() +
+  facet_wrap(. ~ Crested)
+ggplot(data=PG_localhet,aes(x=potential,y=logcoverdev)) +
+  geom_point() +
+  facet_wrap(. ~ Crested)
+
+
+# linear models for plot level heterogeneity
+AG_localhet_scaled <- AG_localhet %>%
+  ungroup() %>%
+  group_by(FuncGroup) %>%
+  mutate(Slope = scale(Slope,center=T,scale=T),
+          hli=scale(hli,center=T,scale=T),
+          topodist = scale(topodist,center=T,scale=T),
+          logcattledev = scale(logcattledev,center=T,scale=T),
+          sanddev = scale(sanddev,center=T,scale=T),
+          potential = scale(potential,center=T,scale=T),
+          WaterDist = scale(WaterDist,center=T,scale=T),
+          topodistindex = scale(topodistindex,center=T,scale=T))
+
+PG_localhet_scaled <- PG_localhet %>%
+  ungroup() %>%
+  group_by(FuncGroup) %>%
+  mutate(Slope = scale(Slope,center=T,scale=T),
+         hli=scale(hli,center=T,scale=T),
+         topodist = scale(topodist,center=T,scale=T),
+         logcattledev = scale(logcattledev,center=T,scale=T),
+         sanddev = scale(sanddev,center=T,scale=T),
+         potential = scale(potential,center=T,scale=T),
+         WaterDist = scale(WaterDist,center=T,scale=T),
+         topodistindex = scale(topodistindex,center=T,scale=T))
+
+S_localhet_scaled <- S_localhet %>%
+  ungroup() %>%
+  group_by(FuncGroup) %>%
+  mutate(Slope = scale(Slope,center=T,scale=T),
+         hli=scale(hli,center=T,scale=T),
+         topodist = scale(topodist,center=T,scale=T),
+         logcattledev = scale(logcattledev,center=T,scale=T),
+         sanddev = scale(sanddev,center=T,scale=T),
+         potential = scale(potential,center=T,scale=T),
+         WaterDist = scale(WaterDist,center=T,scale=T),
+         topodistindex = scale(topodistindex,center=T,scale=T))
+
+# AG_localhet_fullmodel <- lm(logcoverdev ~ potential*(Slope + hli + topodist + logcattledev + sanddev),data=AG_localhet_scaled,na.action="na.fail")
+# dredge(AG_localhet_fullmodel) # hli
+# summary(lm(logcoverdev ~ hli,data=AG_localhet_scaled))
+# 
+# PG_localhet_fullmodel <- lm(logcoverdev ~ potential*(Slope + hli + topodist + logcattledev + sanddev),data=PG_localhet_scaled,na.action="na.fail")
+# dredge(PG_localhet_fullmodel) # topodist, hli*potential
+# summary(lm(logcoverdev ~ hli*potential + topodist, data=PG_localhet_scaled))
+# 
+# S_localhet_fullmodel <- lm(logcoverdev ~ potential*(Slope + hli + topodist + logcattledev + sanddev),data=S_localhet_scaled,na.action="na.fail")
+# dredge(S_localhet_fullmodel) # hli, dung, potential*slope, topodist
+# summary(lm(logcoverdev ~ potential*Slope + hli + topodist + logcattledev,data=S_localhet_scaled,na.action="na.fail"))
+
+# crested split
+AG_localhet_scaled_c <- AG_localhet_scaled[AG_localhet_scaled$Crested==T,]
+AG_localhet_scaled_n <- AG_localhet_scaled[AG_localhet_scaled$Crested==F,]
+PG_localhet_scaled_c <- PG_localhet_scaled[PG_localhet_scaled$Crested==T,]
+PG_localhet_scaled_n <- PG_localhet_scaled[PG_localhet_scaled$Crested==F,]
+S_localhet_scaled_c <- S_localhet_scaled[S_localhet_scaled$Crested==T,]
+S_localhet_scaled_n <- S_localhet_scaled[S_localhet_scaled$Crested==F,]
+
+
+AG_localhet_fullmodel_c <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=AG_localhet_scaled_c,na.action="na.fail")
+dredge(AG_localhet_fullmodel_c) 
+# topodist: just hli
+# tdi: just hli
+# waterdist: just hli
+AG_localhet_fullmodel_n <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=AG_localhet_scaled_n,na.action="na.fail")
+dredge(AG_localhet_fullmodel_n) 
+# topodist: just hli
+# topodistindex: just hli
+# waterdist: just hli
+
+PG_localhet_fullmodel_c <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=PG_localhet_scaled_c,na.action="na.fail")
+dredge(PG_localhet_fullmodel_c) 
+# topodist: null model
+# topodistindex: null model
+# waterdist: waterdist or hli
+PG_localhet_fullmodel_n <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=PG_localhet_scaled_n,na.action="na.fail")
+dredge(PG_localhet_fullmodel_n) 
+# topodist: hli*potential, topodist
+# topodistindex: hli*potential, topodistindex
+# waterdist: hli*potential, sand, waterdist
+
+S_localhet_fullmodel_c <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=S_localhet_scaled_c,na.action="na.fail")
+dredge(S_localhet_fullmodel_c) 
+# topodist: dung, topodist
+# topodistindex: just dung
+# waterdist: dung, waterdist
+S_localhet_fullmodel_n <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=S_localhet_scaled_n,na.action="na.fail")
+dredge(S_localhet_fullmodel_n) 
+# topodist: hli*potential, sand*potential, slope*potential
+# topodistindex: hli*potential, sand*potential, slope*potential
+# waterdist: hli*potential, sand*potential, slope*potential
+
+
+### Plot level heterogeneity graphs ----
+AGp1 <- ggplot(data=AG_localhet,aes(x=sanddev,y=logcoverdev)) +
+  geom_point(color='#fd8d3c',alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Deviation from pasture average soil sand content (%)")
+AGp2 <- ggplot(data=AG_localhet,aes(x=logcattledev,y=logcoverdev)) +
+  geom_point(color='#fd8d3c',alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Deviation from pasture average log cattle dung count")
+AGp3 <- ggplot(data=AG_localhet,aes(x=hli,y=logcoverdev)) +
+  geom_point(color='#fd8d3c',alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Heat load index") +
+  geom_smooth(method="lm",se=F,color="#fc4e2a")
+AGp4 <- ggplot(data=AG_localhet,aes(x=Slope,y=logcoverdev)) +
+  geom_point(color='#fd8d3c',alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Slope (degrees)")
+AGp5 <- ggplot(data=AG_localhet,aes(x=WaterDist,y=logcoverdev)) +
+  geom_point(color='#fd8d3c',alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Distance to water (m)")
+
+agplots_local <- plot_grid(AGp1,AGp2,AGp3,AGp4,AGp5,nrow=5)
+agplots_local
+
+PGp1 <- ggplot(data=PG_localhet,aes(x=sanddev,y=logcoverdev)) +
+  geom_point(color="#78c679",alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Deviation from pasture average soil sand content (%)") +
+  geom_smooth(method="lm",se=F,color="#41ab5d",data = subset(PG_localhet, Crested ==F))
+PGp2 <- ggplot(data=PG_localhet,aes(x=logcattledev,y=logcoverdev)) +
+  geom_point(color="#78c679",alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Deviation from pasture average log cattle dung count")
+PGp3 <- ggplot(data=PG_localhet,aes(x=hli,y=logcoverdev)) +
+  geom_point(color="#78c679",alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Heat load index") +
+  geom_smooth(method="lm",se=F,color="#41ab5d") +
+  geom_smooth(method="lm",se=F,color="#005a32",data = subset(PG_localhet, Crested ==F&potential>median(potential))) +
+  geom_smooth(method="lm",se=F,color="#addd8e",data = subset(PG_localhet, Crested ==F&potential<median(potential)))
+PGp4 <- ggplot(data=PG_localhet,aes(x=Slope,y=logcoverdev)) +
+  geom_point(color="#78c679",alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Slope (degrees)")
+PGp5 <- ggplot(data=PG_localhet,aes(x=WaterDist,y=logcoverdev)) +
+  geom_point(color="#78c679",alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Distance to water (m)") +
+  geom_smooth(method="lm",se=F,color="#41ab5d")
+
+pgplots_local <- plot_grid(PGp1,PGp2,PGp3,PGp4,PGp5,nrow=5)
+pgplots_local
+
+Sp1 <- ggplot(data=S_localhet,aes(x=sanddev,y=logcoverdev)) +
+  geom_point(color="#f768a1") +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Deviation from pasture average soil sand content (%)")+
+  geom_smooth(method="lm",se=F,color="#dd3497",data = subset(PG_localhet, Crested ==F)) +
+  geom_smooth(method="lm",se=F,color="#7a0177",data = subset(PG_localhet, Crested ==F&potential>median(potential))) +
+  geom_smooth(method="lm",se=F,color="#fa9fb5",data = subset(PG_localhet, Crested ==F&potential<median(potential)))
+Sp2 <- ggplot(data=S_localhet,aes(x=logcattledev,y=logcoverdev)) +
+  geom_point(color="#f768a1") +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Deviation from pasture average log cattle dung count") +
+  geom_smooth(method="lm",se=F,color="#dd3497",data = subset(PG_localhet, Crested ==T))
+Sp3 <- ggplot(data=S_localhet,aes(x=hli,y=logcoverdev)) +
+  geom_point(color="#f768a1") +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Heat load index") +
+  geom_smooth(method="lm",se=F,color="#dd3497",data = subset(PG_localhet, Crested ==F)) +
+  geom_smooth(method="lm",se=F,color="#7a0177",data = subset(PG_localhet, Crested ==F&potential>median(potential))) +
+  geom_smooth(method="lm",se=F,color="#fa9fb5",data = subset(PG_localhet, Crested ==F&potential<median(potential)))
+Sp4 <- ggplot(data=S_localhet,aes(x=Slope,y=logcoverdev)) +
+  geom_point(color="#f768a1") +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Slope (degrees)") +
+  geom_smooth(method="lm",se=F,color="#dd3497",data = subset(PG_localhet, Crested ==F)) +
+  geom_smooth(method="lm",se=F,color="#7a0177",data = subset(PG_localhet, Crested ==F&potential>median(potential))) +
+  geom_smooth(method="lm",se=F,color="#fa9fb5",data = subset(PG_localhet, Crested ==F&potential<median(potential)))
+Sp5 <- ggplot(data=S_localhet,aes(x=WaterDist,y=logcoverdev)) +
+  geom_point(color="#f768a1") +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Distance to water (m)") +
+  geom_smooth(method="lm",se=F,color="#dd3497",data = subset(PG_localhet, Crested ==T))
+
+shrubplots_local <- plot_grid(Sp1,Sp2,Sp3,Sp4,Sp5,nrow=5)
+shrubplots_local
+
+### local heterogeneity plots, just non-crested sites ----
+AGp1_nc <- ggplot(data=subset(AG_localhet,Crested==F),aes(x=sanddev,y=logcoverdev)) +
+  geom_point(color='#fd8d3c',alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Deviation from pasture average soil sand content (%)")
+AGp2_nc <- ggplot(data=subset(AG_localhet,Crested==F),aes(x=logcattledev,y=logcoverdev)) +
+  geom_point(color='#fd8d3c',alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Deviation from pasture average log cattle dung count")
+AGp3_nc <- ggplot(data=subset(AG_localhet,Crested==F),aes(x=hli,y=logcoverdev)) +
+  geom_point(color='#fd8d3c',alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Heat load index") +
+  geom_smooth(method="lm",se=F,color="#fc4e2a")
+AGp4_nc <- ggplot(data=subset(AG_localhet,Crested==F),aes(x=Slope,y=logcoverdev)) +
+  geom_point(color='#fd8d3c',alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Slope (degrees)")
+AGp5_nc <- ggplot(data=subset(AG_localhet,Crested==F),aes(x=WaterDist,y=logcoverdev)) +
+  geom_point(color='#fd8d3c',alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Distance to water (m)")
+
+PGp1_nc <- ggplot(data=subset(PG_localhet,Crested==F),aes(x=sanddev,y=logcoverdev)) +
+  geom_point(color="#78c679",alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Deviation from pasture average soil sand content (%)") +
+  geom_smooth(method="lm",se=F,color="#41ab5d",data = subset(PG_localhet, Crested ==F))
+PGp2_nc <- ggplot(data=subset(PG_localhet,Crested==F),aes(x=logcattledev,y=logcoverdev)) +
+  geom_point(color="#78c679",alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Deviation from pasture average log cattle dung count")
+PGp3_nc <- ggplot(data=subset(PG_localhet,Crested==F),aes(x=hli,y=logcoverdev)) +
+  geom_point(color="#78c679",alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Heat load index") +
+  geom_smooth(method="lm",se=F,color="#41ab5d") +
+  geom_smooth(method="lm",se=F,color="#005a32",data = subset(PG_localhet, Crested ==F&potential>median(potential))) +
+  geom_smooth(method="lm",se=F,color="#addd8e",data = subset(PG_localhet, Crested ==F&potential<median(potential)))
+PGp4_nc <- ggplot(data=subset(PG_localhet,Crested==F),aes(x=Slope,y=logcoverdev)) +
+  geom_point(color="#78c679",alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Slope (degrees)")
+PGp5_nc <- ggplot(data=subset(PG_localhet,Crested==F),aes(x=WaterDist,y=logcoverdev)) +
+  geom_point(color="#78c679",alpha=0.8) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Distance to water (m)") +
+  geom_smooth(method="lm",se=F,color="#41ab5d")
+
+Sp1_nc <- ggplot(data=subset(S_localhet,Crested==F),aes(x=sanddev,y=logcoverdev)) +
+  geom_point(color="#f768a1") +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Deviation from pasture average soil sand content (%)")+
+  geom_smooth(method="lm",se=F,color="#dd3497",data = subset(PG_localhet, Crested ==F)) +
+  geom_smooth(method="lm",se=F,color="#7a0177",data = subset(PG_localhet, Crested ==F&potential>median(potential))) +
+  geom_smooth(method="lm",se=F,color="#fa9fb5",data = subset(PG_localhet, Crested ==F&potential<median(potential)))
+Sp2_nc <- ggplot(data=subset(S_localhet,Crested==F),aes(x=logcattledev,y=logcoverdev)) +
+  geom_point(color="#f768a1") +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Deviation from pasture average log cattle dung count") 
+Sp3_nc <- ggplot(data=subset(S_localhet,Crested==F),aes(x=hli,y=logcoverdev)) +
+  geom_point(color="#f768a1") +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Heat load index") +
+  geom_smooth(method="lm",se=F,color="#dd3497",data = subset(PG_localhet, Crested ==F)) +
+  geom_smooth(method="lm",se=F,color="#7a0177",data = subset(PG_localhet, Crested ==F&potential>median(potential))) +
+  geom_smooth(method="lm",se=F,color="#fa9fb5",data = subset(PG_localhet, Crested ==F&potential<median(potential)))
+Sp4_nc <- ggplot(data=subset(S_localhet,Crested==F),aes(x=Slope,y=logcoverdev)) +
+  geom_point(color="#f768a1") +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Slope (degrees)") +
+  geom_smooth(method="lm",se=F,color="#dd3497",data = subset(PG_localhet, Crested ==F)) +
+  geom_smooth(method="lm",se=F,color="#7a0177",data = subset(PG_localhet, Crested ==F&potential>median(potential))) +
+  geom_smooth(method="lm",se=F,color="#fa9fb5",data = subset(PG_localhet, Crested ==F&potential<median(potential)))
+Sp5_nc <- ggplot(data=subset(S_localhet,Crested==F),aes(x=WaterDist,y=logcoverdev)) +
+  geom_point(color="#f768a1") +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Distance to water (m)")
+
+plot_grid(AGp1_nc,PGp1_nc,Sp1_nc,nrow=1)
+plot_grid(AGp2_nc,PGp2_nc,Sp2_nc,nrow=1)
+plot_grid(AGp3_nc,PGp3_nc,Sp3_nc,nrow=1)
+plot_grid(AGp4_nc,PGp4_nc,Sp4_nc,nrow=1)
+plot_grid(AGp5_nc,PGp5_nc,Sp5_nc,nrow=1)
+
+# plots arranged with functional groups side by side ----
+
+AGnc1 <- ggplot(data = functionalcover_pasture_plus_AG[functionalcover_pasture_plus_AG$Crested==F,],aes(x=FireHistory,y=cover)) +
+  geom_boxplot() +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  facet_wrap(.~FuncGroup) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Fire History",y = element_blank()) +
+  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=agcolors) +
+  scale_shape_manual(values=c(21,24))
+PGnc1 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="PG"&functionalcover_pasture_plus$Crested==F,],aes(x=FireHistory,y=cover)) +
+  geom_boxplot() +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Fire History",y = element_blank()) +
+  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=pgcolors) +
+  scale_shape_manual(values=c(21,24))
+Snc1 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="S"&functionalcover_pasture_plus$Crested==F,],aes(x=FireHistory,y=cover)) +
+  geom_boxplot() +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Fire History",y = element_blank()) +
+  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24))
+
+AGnc2 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F),aes(x=elev_ned,y=cover)) +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Elevation (m)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=agcolors) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777")
+PGnc2 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="PG"&Crested==F),aes(x=elev_ned,y=cover)) +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Elevation (m)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=pgcolors) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="PG"&Crested==F))
+Snc2 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="S"&Crested==F),aes(x=elev_ned,y=cover)) +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Elevation (m)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24))
+
+AGnc3 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F),aes(x=ppt,y=cover)) +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual precipitation (mm)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=agcolors) +
+  scale_shape_manual(values=c(21,24))
+PGnc3 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="PG"&Crested==F),aes(x=ppt,y=cover)) +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual precipitation (mm)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=pgcolors) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777")
+Snc3 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="S"&Crested==F),aes(x=ppt,y=cover)) +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual precipitation (mm)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24))
+
+AGnc4 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F),aes(x=tmean,y=cover)) +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual temperature (degrees C)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=agcolors) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F)) +
+  geom_smooth(method="lm",se=F,color="#cccccc",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&logcattledung<median(logcattledung))) +
+  geom_smooth(method="lm",se=F,color="black",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&logcattledung>median(logcattledung)))
+PGnc4 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="PG"&Crested==F),aes(x=tmean,y=cover)) +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual temperature (degrees C)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=pgcolors) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="PG"&Crested==F))
+Snc4 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="S"&Crested==F),aes(x=tmean,y=cover)) +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual temperature (degrees C)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24))
+
+AGnc5 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F),aes(x=Sand,y=cover)) +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Soil Sand Content (%)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=agcolors) +
+  scale_shape_manual(values=c(21,24))
+PGnc5 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="PG"&Crested==F),aes(x=Sand,y=cover)) +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Soil sand content (%)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=pgcolors) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="PG"&Crested==F))
+Snc5 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="S"&Crested==F),aes(x=Sand,y=cover)) +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Soil sand content (%)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24))
+
+AGnc6 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F),aes(x=logcattledung,y=cover)) +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Log-transformed cattle dung count (log[dung per plot + 1])",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=agcolors) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F)) +
+  geom_smooth(method="lm",se=F,color="#cccccc",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&tmean<median(tmean))) +
+  geom_smooth(method="lm",se=F,color="black",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&tmean>median(tmean)))
+PGnc6 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="PG"&Crested==F),aes(x=logcattledung,y=cover)) +
+  scale_y_log10() +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Log-transformed cattle dung count (log[dung per plot + 1])",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=pgcolors) +
+  scale_shape_manual(values=c(21,24))
+Snc6 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="S"&Crested==F),aes(x=logcattledung,y=cover)) +
+  scale_y_log10(limits=c(0.005,0.65)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Log-transformed cattle dung count (log[dung per plot + 1])",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24))
+
+
+regionalplots_nocrested <- plot_grid(AGnc1,PGnc1,Snc1,
+          AGnc2,PGnc2,Snc2,
+          AGnc3,PGnc3,Snc3,
+          AGnc4,PGnc4,Snc4,
+          AGnc5,PGnc5,Snc5,
+          AGnc6,PGnc6,Snc6,
+          nrow=6)
+
+#### Save plots to PDF, finish annotating in Inkscape ----
+setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/Plots/")
+
+pdf(file="agplots_local.pdf",width=4,height=6)
+agplots_local
+dev.off()
+pdf(file="pgplots_local.pdf",width=4,height=6)
+pgplots_local
+dev.off()
+pdf(file="shrubplots_local.pdf",width=4,height=6)
+shrubplots_local
+dev.off()
+
+pdf(file="agplots_regional.pdf",width=9,height=5)
+agplots_regional
+dev.off()
+pdf(file="pgplots_regional.pdf",width=9,height=5)
+pgplots_regional
+dev.off()
+pdf(file="shrubplots_regional.pdf",width=9,height=5)
+shrubplots_regional
+dev.off()
+
+pdf(file="regionalplots_nocrested.pdf",width=7,height=10)
+regionalplots_nocrested
+dev.off()

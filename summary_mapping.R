@@ -5,6 +5,9 @@ library(rgdal)
 library(sp)
 library(sf)
 library(tidyverse)
+library(ggmap)
+library(ggsn)
+library(ggspatial)
 
 source("/Users/maddy/Repositories/greatbasinresilience/ars-resilience/data_analysis.R") # fix this later
 
@@ -46,6 +49,8 @@ states <- st_as_sf(states)
 
 #### Attach plot and pasture values to points, and map ---
 plotpts_AG <- left_join(plotdata,functionalcover_scaledAG[c("PlotID","cover")],by="PlotID")
+plotpts_PG <- left_join(plotdata,functionalcover_scaledPG[c("PlotID","cover")],by="PlotID")
+plotpts_S <- left_join(plotdata,functionalcover_scaledS[c("PlotID","cover")],by="PlotID")
 
 ggplot(data=plotpts_AG,aes(x=Longitude,y=Latitude,color=log(cover))) +
   geom_point()
@@ -77,26 +82,182 @@ ggplot(data=pasturepts_S,aes(x=Longitude,y=Latitude,color=cover,size=cover)) +
   scale_colour_gradientn(colours=c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177')) +
   theme_bw()
 
-ggplot(data=states) +
-  geom_sf(fill="white") +
-  geom_point(data=pasturepts_S,aes(x=Longitude,y=Latitude,color=cover,size=cover,shape=Crested)) +
-  scale_colour_gradientn(colours=c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177')) +
-  theme_bw() +
-  coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE)
 
-ggplot(data=states) +
-  geom_sf(fill="white") +
+# Nice maps to save
+
+# import basemap from Stamen using ggmap package
+myMap <- get_stamenmap(bbox = c(left = -120,
+                                bottom = 41.5,
+                                right = -114,
+                                top = 44),
+                       maptype = "terrain", 
+                       crop = FALSE,
+                       zoom = 7)
+
+shrubmap <- ggmap(myMap) +
+  geom_point(data=pasturepts_S,aes(x=Longitude,y=Latitude,fill=cover,size=cover,shape=Crested),color="black") +
+  scale_shape_manual(values=c(21,24)) +
+  scale_fill_gradientn(colours=c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177'),breaks=c(0.1,0.2,0.3),name=element_blank()) +
+  theme_bw() +
+  theme(legend.direction = "horizontal") +
+  scale_size_continuous(breaks=c(0.1,0.2,0.3),name="Shrub cover") +
+  coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE) +
+  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2),shape = guide_legend(order=3,title.position = "top")) +
+  labs(x="Longitude",y="Latitude")
+
+pgmap <- ggmap(myMap) +
   geom_point(data=pasturepts_PG,aes(x=Longitude,y=Latitude,fill=cover,size=cover,shape=Crested),color="black") +
-  scale_fill_gradientn(colours=c('#ffffcc','#d9f0a3','#addd8e','#78c679','#41ab5d','#238443','#005a32')) +
+  scale_fill_gradientn(colours=c('#ffffcc','#d9f0a3','#addd8e','#78c679','#41ab5d','#238443','#005a32'),breaks=c(0.2,0.4,0.6),name=element_blank()) +
   scale_shape_manual(values=c(21,24)) +
   theme_bw() +
-  coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE)
+  coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE) +
+  scale_size_continuous(breaks=c(0.2,0.4,0.6),name="Perennial grass cover") +
+  theme(legend.direction = "horizontal") +
+  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2),shape = guide_legend(order=3,title.position = "top")) +
+  labs(x="Longitude",y="Latitude")
 
-ggplot(data=states) +
-  geom_sf(fill="white") +
-  geom_point(data=pasturepts_AG,aes(x=Longitude,y=Latitude,color=cover,size=cover,shape=Crested)) +
-  scale_colour_gradientn(colours=c('#ffffb2','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#b10026')) +
+agmap <- ggmap(myMap) +
+  geom_point(data=pasturepts_AG,aes(x=Longitude,y=Latitude,fill=cover,size=cover,shape=Crested),color="black") +
+  scale_fill_gradientn(colours=c('#ffffb2','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#b10026'),breaks=c(0.1,0.3,0.5),name=element_blank()) +
+  scale_shape_manual(values=c(21,24)) +
   theme_bw() +
-  coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE)
+  coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE) +
+  theme(legend.direction = "horizontal") +
+  scale_size_continuous(breaks=c(0.1,0.3,0.5),name="Annual grass cover") +
+  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top"),shape = guide_legend(order=3,title.position = "top")) +
+  labs(x="Longitude",y="Latitude")
+
+allmap <- plot_grid(agmap,pgmap,shrubmap,nrow=3)
+
+# Save as PDFs
+
+setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/Plots/")
+
+pdf(file="agmap.pdf",width=8,height=4)
+agmap
+dev.off()
+pdf(file="pgmap.pdf",width=8,height=4)
+pgmap
+dev.off()
+pdf(file="shrubmap.pdf",width=8,height=4)
+shrubmap
+dev.off()
+
+
+# maps without crested sites
+shrubmap_nc <- ggmap(myMap) +
+  geom_point(data=pasturepts_S[pasturepts_S$Crested==F,],aes(x=Longitude,y=Latitude,fill=cover,size=cover),color="black",shape=21) +
+  scale_fill_gradientn(colours=c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177'),breaks=c(0.1,0.2,0.3),name=element_blank()) +
+  theme_bw() +
+  coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE) +
+  scale_size_continuous(breaks=c(0.1,0.2,0.3),name="Shrub cover") +
+  theme(legend.direction = "horizontal") +
+  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top")) +
+  labs(x="Longitude",y="Latitude")
+
+pgmap_nc <- ggmap(myMap) +
+  geom_point(data=pasturepts_PG[pasturepts_PG$Crested==F,],aes(x=Longitude,y=Latitude,fill=cover,size=cover),color="black",shape=21) +
+  scale_fill_gradientn(colours=c('#ffffcc','#d9f0a3','#addd8e','#78c679','#41ab5d','#238443','#005a32'),breaks=c(0.2,0.4,0.6),name=element_blank()) +
+  theme_bw() +
+  coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE) +
+  theme(legend.direction = "horizontal") +
+  scale_size_continuous(breaks=c(0.2,0.4,0.6),name="Perennial grass cover") +
+  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top")) +
+  labs(x="Longitude",y="Latitude")
+
+agmap_nc <- ggmap(myMap) +
+  geom_point(data=pasturepts_AG[pasturepts_AG$Crested==F,],aes(x=Longitude,y=Latitude,fill=cover,size=cover),color="black",shape=21) +
+  scale_fill_gradientn(colours=c('#ffffb2','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#b10026'),breaks=c(0.1,0.3,0.5),name=element_blank()) +
+  theme_bw() +
+  coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE) +
+  theme(legend.direction = "horizontal") +
+  scale_size_continuous(breaks=c(0.1,0.3,0.5),name="Annual grass cover") +
+  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top")) +
+  labs(x="Longitude",y="Latitude")
+
+allmap_nc <- plot_grid(agmap_nc,pgmap_nc,shrubmap_nc,nrow=3)
+
+setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/Plots/")
+
+pdf(file="agmap_nc.pdf",width=8,height=4)
+agmap_nc
+dev.off()
+pdf(file="pgmap_nc.pdf",width=8,height=4)
+pgmap_nc
+dev.off()
+pdf(file="shrubmap_nc.pdf",width=8,height=4)
+shrubmap_nc
+dev.off()
+pdf(file="allmap_nc.pdf",width=7,height=9)
+allmap_nc
+dev.off()
+
+
+# Pasture example
+ggplot(data=plotpts_AG[plotpts_AG$PastureName=="BarlowBrush",],aes(x=Longitude,y=Latitude,fill=cover,size=cover)) +
+  geom_point(shape=21,color="black") +
+  scale_fill_gradientn(colours=c('#ffffb2','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#b10026'),breaks=c(0.1,0.3,0.5))
+ggplot(data=plotpts_PG[plotpts_PG$PastureName=="BarlowBrush",],aes(x=Longitude,y=Latitude,fill=cover,size=cover)) +
+  geom_point(shape=21,color="black") +
+  scale_fill_gradientn(colours=c('#ffffcc','#d9f0a3','#addd8e','#78c679','#41ab5d','#238443','#005a32'),breaks=c(0.2,0.4,0.6),name=element_blank())
+ggplot(data=plotpts_S[plotpts_S$PastureName=="BarlowBrush",],aes(x=Longitude,y=Latitude,fill=cover,size=cover)) +
+  geom_point(shape=21,color="black") +
+  scale_fill_gradientn(colours=c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177'),breaks=c(0.1,0.2,0.3),name=element_blank()) +
+  geom_point(x=-117.09902,y=43.07648,color="blue",shape=13) +
+  lims(x=c(-117.125,-117.09),y=c(43.0700,43.0800))
+
+myMapTiny <- get_stamenmap(bbox = c(left = -117.125,
+                                bottom = 43.0650,
+                                right = -117.09,
+                                top = 43.0830),
+                       maptype = "terrain", 
+                       zoom = 10)
+
+ggmap(myMapTiny) +
+  geom_point(data=plotpts_S[plotpts_S$PastureName=="BarlowBrush",],aes(x=Longitude,y=Latitude,fill=cover,size=cover),shape=21,color="black") +
+  scale_fill_gradientn(colours=c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177'),breaks=c(0.1,0.2,0.3),name="Shrub cover") +
+  geom_point(x=-117.09902,y=43.07648,color="blue",shape=18,size=5) +
+  coord_sf(xlim=c(-117.125,-117.09),ylim=c(43.0680,43.0830),crs=4326) +
+  scale_size_continuous(guide="none") +
+  labs(x="Longitude",y="Latitude") +
+  theme(legend.direction = "horizontal") +
+  guides(fill = guide_colorbar(title.position="top")) +
+  annotation_scale(location="tl")
+
+myMapTiny <- get_stamenmap(bbox = c(left = -117.125,
+                                    bottom = 43.0650,
+                                    right = -117.09,
+                                    top = 43.0830),
+                           maptype = "terrain", 
+                           zoom = 10)
+
+ggmap(myMapTiny) +
+  geom_point(data=plotpts_PG[plotpts_PG$PastureName=="BarlowBrush",],aes(x=Longitude,y=Latitude,fill=cover,size=cover),shape=21,color="black") +
+  scale_fill_gradientn(colours=c('#ffffcc','#d9f0a3','#addd8e','#78c679','#41ab5d','#238443','#005a32'),breaks=c(0.2,0.4,0.6),name="Perennial grass cover") +
+  geom_point(x=-117.09902,y=43.07648,color="blue",shape=18,size=5) +
+  coord_sf(xlim=c(-117.125,-117.09),ylim=c(43.0680,43.0830),crs=4326) +
+  scale_size_continuous(guide="none") +
+  labs(x="Longitude",y="Latitude") +
+  theme(legend.direction = "horizontal") +
+  guides(fill = guide_colorbar(title.position="top")) +
+  annotation_scale(location="tl")
+
+myMapTiny <- get_stamenmap(bbox = c(left = -117.125,
+                                    bottom = 43.0650,
+                                    right = -117.09,
+                                    top = 43.0830),
+                           maptype = "terrain", 
+                           zoom = 10)
+
+ggmap(myMapTiny) +
+  geom_point(data=plotpts_AG[plotpts_AG$PastureName=="BarlowBrush",],aes(x=Longitude,y=Latitude,fill=cover,size=cover),shape=21,color="black") +
+  scale_fill_gradientn(colours=c('#ffffb2','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#b10026'),breaks=c(0.1,0.3,0.5),name="Annual grass cover") +
+  geom_point(x=-117.09902,y=43.07648,color="blue",shape=18,size=5) +
+  coord_sf(xlim=c(-117.125,-117.09),ylim=c(43.0680,43.0830),crs=4326) +
+  scale_size_continuous(guide="none") +
+  labs(x="Longitude",y="Latitude") +
+  theme(legend.direction = "horizontal") +
+  guides(fill = guide_colorbar(title.position="top")) +
+  annotation_scale(location="tl")
 
 

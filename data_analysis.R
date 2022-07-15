@@ -28,7 +28,7 @@ aum <- read.csv("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResi
 pastureshapes <- read.csv("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/FieldData_Raw/GreatBasin2021_PastureShapes.csv")
 
 plotdata$PastureName <- recode(plotdata$PastureName, "SouthSteens" = "SouthSteens2","Canal Field" = "CanalField","SouthSteens "="SouthSteens2") # re-run cleaning script to update saved files with this
-plotdata <- left_join(plotdata,select(pastures,Pasture,Region,FireHistory),by=c("PastureName" = "Pasture"))
+plotdata <- left_join(plotdata,dplyr::dplyr::select(pastures,Pasture,Region,FireHistory),by=c("PastureName" = "Pasture"))
 
 # Gap intercept summary ----
 # summarize: total gap, median gap, mean gap, max gap
@@ -60,7 +60,7 @@ aum_sum <- aum %>%
   group_by(Pasture,Year) %>%
   summarise(aum_total = sum(AUM_All),aum_public = sum(AUM_Pub)) %>%
   mutate(aum_total = replace_na(aum_total,0), aum_public = replace_na(aum_public,0)) %>%
-  left_join(select(pastureshapes,Pasture,GIS_ACRES)) %>%
+  left_join(dplyr::select(pastureshapes,Pasture,GIS_ACRES)) %>%
   mutate(aum_peracre = aum_total/GIS_ACRES)
 
 aum_avg <- aum_sum %>%
@@ -84,7 +84,7 @@ pastures <- pastures %>%
   mutate(fullwater = ifelse(pastures$CurrentWater1A==1|pastures$CurrentWater1B==1|pastures$CurrentWater2==1,1,0)) %>%
   mutate(fullwater = ifelse(is.na(fullwater), 0, fullwater))
 dungsum <- dungsum %>%
-  left_join(select(pastures,Pasture,fullwater),by="Pasture")
+  left_join(dplyr::select(pastures,Pasture,fullwater),by="Pasture")
 
 # Cattle dung vs distance to water plots ----
 ggplot(data=dungsum[dungsum$Species=="cattle",],aes(x = WaterDist, y = meancount)) +
@@ -130,18 +130,18 @@ plantspp_long_complete <- plantspp_long %>%
 crestedonly <- plantspp_long_complete[plantspp_long_complete$sppcode=="AGCR",]
 crestedonly$Crested <- crestedonly$cover>0
 
-env <- select(plotdata,PlotID) %>%
+env <- dplyr::select(plotdata,PlotID) %>%
   mutate(Pasture = sapply(strsplit(plotdata$PlotID,split="_"),"[[",1),
          WaterDist = as.numeric(sapply(strsplit(plotdata$PlotID,split="_"),"[[",2)),
          Asp = sapply(strsplit(plotdata$PlotID,split="_"),"[[",3)
   ) %>%
-  left_join(select(pastures,Pasture,FireHistory,Region,fullwater),by="Pasture") %>%
-  left_join(select(plotdata,PlotID,Slope,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,hli,topodist)) %>%
-  left_join(select(crestedonly,PlotID,Crested)) %>%
-  left_join(select(dungsum[dungsum$Species=="cattle",],PlotID,meancount),by="PlotID") %>%
+  left_join(dplyr::select(pastures,Pasture,FireHistory,Region,fullwater),by="Pasture") %>%
+  left_join(dplyr::select(plotdata,PlotID,Slope,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,hli,topodist)) %>%
+  left_join(dplyr::select(crestedonly,PlotID,Crested)) %>%
+  left_join(dplyr::select(dungsum[dungsum$Species=="cattle",],PlotID,meancount),by="PlotID") %>%
   rename(CattleDung = meancount) %>%
   left_join(gapsummary) %>%
-  left_join(select(dungsum_all,PlotID,totaldung))
+  left_join(dplyr::select(dungsum_all,PlotID,totaldung))
 
 # plant species matrix annotated with environmental variables
 plantspp_long_plus <- plantspp_long_complete %>%
@@ -150,7 +150,7 @@ plantspp_long_plus <- plantspp_long_complete %>%
 
 # functional cover summary
 functionalcover <- plantspp_long_complete %>%
-  left_join(select(funckey,sppcode,FuncGroup)) %>%
+  left_join(dplyr::select(funckey,sppcode,FuncGroup)) %>%
   group_by(PlotID,FuncGroup) %>%
   summarise(cover = sum(cover)) 
 functionalcover_plus <- functionalcover %>%
@@ -172,7 +172,7 @@ functionalcover_pasture <- functionalcover %>%
   
 # Pasture level summaries of environmental data
 env_pasture <- env %>%
-  select(Pasture,FireHistory,Region,fullwater,Slope,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,hli,topodist,Crested,CattleDung,totaldung,totalgap,meangap,maxgap,mediangap) %>%
+  dplyr::select(Pasture,FireHistory,Region,fullwater,Slope,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,hli,topodist,Crested,CattleDung,totaldung,totalgap,meangap,maxgap,mediangap) %>%
   group_by(Pasture,FireHistory,Region,fullwater) %>%
   summarise(CattleDung=mean(CattleDung),Slope = mean(Slope),Sand=mean(Sand),Silt=mean(Silt),Clay=mean(Clay),C=mean(C),N=mean(N),ppt=mean(ppt),tmean=mean(tmean),elev_ned=mean(elev_ned),totaldung=mean(totaldung),hli=mean(hli),topodist=mean(topodist),totalgap=mean(totalgap),meangap=mean(meangap),maxgap=mean(maxgap),mediangap=mean(mediangap),Crested=sum(Crested)>0)
 # when complete - add in pasture-level AUM data here too
@@ -241,7 +241,7 @@ ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
 
 # functional group ordination
 functional_wide <- functionalcover %>%
-  select(PlotID,FuncGroup,cover) %>%
+  dplyr::select(PlotID,FuncGroup,cover) %>%
   pivot_wider(names_from = FuncGroup,values_from = cover,values_fill=0)
 functional_matrix <- as.matrix(functional_wide[,-1])
 
@@ -259,7 +259,7 @@ species.scores.f$species <- rownames(species.scores.f)
 head(species.scores.f)
 
 env_matrix <- env %>%
-  select(WaterDist,FireHistory,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung,totaldung,hli,topodist)
+  dplyr::select(WaterDist,FireHistory,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung,totaldung,hli,topodist)
 en <- envfit(functional_nms, env_matrix, permutations = 999, na.rm = TRUE)
 en_coord_cont = as.data.frame(scores(en, "vectors")) * 4 #* ordiArrowMul(en)
 en_coord_cat = as.data.frame(scores(en, "factors")) * 4 #* ordiArrowMul(en)
@@ -478,11 +478,11 @@ Scover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand
 dredge(Scover_fullmodel)
 
 ### Abiotic PCs ----
-abiotic.pca <- prcomp(select(plotdata,Sand,Silt,Clay,ppt,tmean,elev_ned,hli,topodist), center = TRUE,scale. = TRUE)
+abiotic.pca <- prcomp(dplyr::select(plotdata,Sand,Silt,Clay,ppt,tmean,elev_ned,hli,topodist), center = TRUE,scale. = TRUE)
 summary(abiotic.pca)
 plot(abiotic.pca)
 biplot(abiotic.pca)
-abiotic.pca.pasture <- prcomp(select(functionalcover_pasture_plus,Sand,Silt,Clay,ppt,tmean,elev_ned,hli,topodist), center = TRUE,scale. = TRUE)
+abiotic.pca.pasture <- prcomp(dplyr::select(functionalcover_pasture_plus,Sand,Silt,Clay,ppt,tmean,elev_ned,hli,topodist), center = TRUE,scale. = TRUE)
 summary(abiotic.pca.pasture)
 plot(abiotic.pca.pasture)
 biplot(abiotic.pca.pasture)
@@ -1251,6 +1251,13 @@ plot_grid(AGp3_nc,PGp3_nc,Sp3_nc,nrow=1)
 plot_grid(AGp4_nc,PGp4_nc,Sp4_nc,nrow=1)
 plot_grid(AGp5_nc,PGp5_nc,Sp5_nc,nrow=1)
 
+localhet_nocrested <- plot_grid(AGp5_nc,PGp5_nc,Sp5_nc,
+                                AGp2_nc,PGp2_nc,Sp2_nc,
+                                AGp1_nc,PGp1_nc,Sp1_nc,
+                                AGp4_nc,PGp4_nc,Sp4_nc,
+                                AGp3_nc,PGp3_nc,Sp3_nc,
+                                nrow=5)
+
 # plots arranged with functional groups side by side ----
 
 AGnc1 <- ggplot(data = functionalcover_pasture_plus_AG[functionalcover_pasture_plus_AG$Crested==F,],aes(x=FireHistory,y=cover)) +
@@ -1474,4 +1481,8 @@ dev.off()
 
 pdf(file="regionalplots_nocrested.pdf",width=7,height=10)
 regionalplots_nocrested
+dev.off()
+
+pdf(file="localhet_nocrested.pdf",width=7,height=10)
+localhet_nocrested
 dev.off()

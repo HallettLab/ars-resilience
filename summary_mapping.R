@@ -11,7 +11,7 @@ library(ggspatial)
 
 source("/Users/maddy/Repositories/greatbasinresilience/ars-resilience/data_analysis.R") # fix this later
 
-### Load spatial data ---
+### Load spatial data ----
 
 # Load point locations and shapefiles
 plotpts <- readOGR("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/ClimateData/PlotPts_Shapefile")
@@ -31,17 +31,17 @@ pastureshape_files <- list.files(path="/Users/maddy/Dropbox (Personal)/ResearchP
 pastureshape1_idaho <- readOGR(pastureshape_files[1])
 pastureshape2_idaho <- readOGR(pastureshape_files[2])
 
-pastures_idaho <- union(pastureshape1,pastureshape2)
+pastures_idaho <- union(pastureshape1_idaho,pastureshape2_idaho)
 pastures_idaho <- spTransform(pastures_idaho,crs("+proj=longlat +datum=NAD83 +no_defs"))
 
 allpastures <- pastures_idaho
 for (i in 3:length(pastureshape_files)) {
   tempshape <- readOGR(pastureshape_files[i])
-  allpastures <- union(allpastures,tempshape)
+  allpastures <- bind(allpastures,tempshape)
 }
-# error in second Steens shapefile - must be because they have the same name
 allpastures
 plot(allpastures,col="red")
+#allpastures <- st_as_sf(allpastures)
 
 # load US states shapefiles for mapping
 states <- readOGR("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/GreatBasinResilience_GIS/cb_2018_us_state_20m/cb_2018_us_state_20m.shp")
@@ -260,4 +260,28 @@ ggmap(myMapTiny) +
   guides(fill = guide_colorbar(title.position="top")) +
   annotation_scale(location="tl")
 
+# Just where the pastures are
+ggmap(myMap) +
+  geom_point(data=pasturepts,aes(x=Longitude,y=Latitude),color="black") +
+  coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44),crs=4326) +
+  annotation_scale(location="bl") +
+  labs(x="Longitude",y="Latitude")
+ggmap(myMap) +
+  geom_point(data=plotdata,aes(x=Longitude,y=Latitude),color="black",alpha=0.5) +
+  #coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44),crs=4326) +
+  #annotation_scale(location="bl") +
+  labs(x="Longitude",y="Latitude")
+  #geom_polygon(data = fortify(allpastures),aes(long,lat))
+  #geom_sf(data=allpastures)
+ggmap(myMap) + 
+  geom_polygon(data = allpastures, aes(x = long, y = lat,group=group),fill=NA,color="black") +
+  labs(x=element_blank(),y=element_blank()) +
+  coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44),crs=4326) +
+  annotation_scale(location="br") +
+  annotation_north_arrow(which_north = "true",location="bl") 
 
+
++
+  geom_point(data=plotdata,aes(x=Longitude,y=Latitude,color=FireHistory),shape=1)
+  
+  

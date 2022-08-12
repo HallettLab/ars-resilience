@@ -57,7 +57,7 @@ ggplot(data=plotpts_AG,aes(x=Longitude,y=Latitude,color=log(cover))) +
 ggplot(data=plotpts_AG,aes(x=Longitude,y=Latitude,color=log(cover+0.01))) +
   geom_point()
 
-pasturepts_AG <- left_join(pasturepts,functionalcover_pasture_plus_AG[c("Pasture","cover","Crested")],by="Pasture")
+pasturepts_AG <- left_join(pasturepts,functionalcover_pasture_scaledAG[c("Pasture","cover","Crested")],by="Pasture")
 
 ggplot(data=pasturepts_AG,aes(x=Longitude,y=Latitude,color=log(cover),size=log(cover))) +
   geom_point() +
@@ -81,6 +81,8 @@ ggplot(data=pasturepts_S,aes(x=Longitude,y=Latitude,color=cover,size=cover)) +
   geom_point() +
   scale_colour_gradientn(colours=c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177')) +
   theme_bw()
+
+pasturepts_shrubcats <- left_join(pasturepts,functionalcover_shrubcats_pasture_plus[c("Pasture","cover","Crested","Resprout")],by="Pasture")
 
 
 # Nice maps to save
@@ -146,14 +148,15 @@ dev.off()
 
 # maps without crested sites
 shrubmap_nc <- ggmap(myMap) +
-  geom_point(data=pasturepts_S[pasturepts_S$Crested==F,],aes(x=Longitude,y=Latitude,fill=cover,size=cover),color="black",shape=21) +
-  scale_fill_gradientn(colours=c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177'),breaks=c(0.1,0.2,0.3),name=element_blank()) +
+  geom_point(data=pasturepts_S[pasturepts_S$Crested==F,],aes(x=Longitude,y=Latitude,fill=cover),color="black",shape=21) +
+  scale_fill_gradientn(colours=c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177'),breaks=c(0.1,0.2,0.3),name="Shrub cover") +
   theme_bw() +
   coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE) +
-  scale_size_continuous(breaks=c(0.1,0.2,0.3),name="Shrub cover") +
+  #scale_size_continuous(breaks=c(0.1,0.2,0.3),name="Shrub cover") +
   theme(legend.direction = "horizontal") +
   guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top")) +
   labs(x="Longitude",y="Latitude")
+shrubmap_nc
 
 pgmap_nc <- ggmap(myMap) +
   geom_point(data=pasturepts_PG[pasturepts_PG$Crested==F,],aes(x=Longitude,y=Latitude,fill=cover,size=cover),color="black",shape=21) +
@@ -175,7 +178,29 @@ agmap_nc <- ggmap(myMap) +
   guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top")) +
   labs(x="Longitude",y="Latitude")
 
-allmap_nc <- plot_grid(agmap_nc,pgmap_nc,shrubmap_nc,nrow=3)
+shrubmap_re_nc <- ggmap(myMap) +
+  geom_point(data=subset(pasturepts_shrubcats,Crested==F&Resprout==1),aes(x=Longitude,y=Latitude,fill=cover,size=cover),color="black",shape=21) +
+  scale_fill_gradientn(colours=c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177'),breaks=c(0,0.05,0.1),name=element_blank()) +
+  theme_bw() +
+  coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE) +
+  scale_size_continuous(breaks=c(0,0.05,0.1),name="Resprouting shrub cover") +
+  theme(legend.direction = "horizontal") +
+  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top")) +
+  labs(x="Longitude",y="Latitude")
+
+shrubmap_no_nc <- ggmap(myMap) +
+  geom_point(data=subset(pasturepts_shrubcats,Crested==F&Resprout==0),aes(x=Longitude,y=Latitude,fill=cover,size=cover),color="black",shape=21) +
+  scale_fill_gradientn(colours=c('#f1eef6','#d0d1e6','#a6bddb','#74a9cf','#3690c0','#0570b0','#034e7b'),breaks=c(0,0.1,0.2,0.3),name=element_blank()) +
+  theme_bw() +
+  coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE) +
+  scale_size_continuous(breaks=c(0,0.1,0.2,0.3),name="Non-resprouting shrub cover") +
+  theme(legend.direction = "horizontal") +
+  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top")) +
+  labs(x="Longitude",y="Latitude")
+
+
+
+allmap_nc <- plot_grid(agmap_nc,pgmap_nc,shrubmap_re_nc,shrubmap_no_nc,nrow=4,align="v")
 
 setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/Plots/")
 

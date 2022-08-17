@@ -11,6 +11,7 @@ library(sjPlot)
 library(jtools)
 library(broom.mixed)
 library(cowplot)
+library(MASS)
 
 # Import data ----
 setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/FieldData_Cleaned")
@@ -479,14 +480,14 @@ Scover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand
 dredge(Scover_fullmodel)
 
 ### Abiotic PCs ----
-abiotic.pca <- prcomp(dplyr::select(plotdata,Sand,Silt,Clay,ppt,tmean,elev_ned,hli,topodist), center = TRUE,scale. = TRUE)
-summary(abiotic.pca)
-plot(abiotic.pca)
-biplot(abiotic.pca)
-abiotic.pca.pasture <- prcomp(dplyr::select(functionalcover_pasture_plus,Sand,Silt,Clay,ppt,tmean,elev_ned,hli,topodist), center = TRUE,scale. = TRUE)
-summary(abiotic.pca.pasture)
-plot(abiotic.pca.pasture)
-biplot(abiotic.pca.pasture)
+# abiotic.pca <- prcomp(dplyr::select(plotdata,Sand,Silt,Clay,ppt,tmean,elev_ned,hli,topodist), center = TRUE,scale. = TRUE)
+# summary(abiotic.pca)
+# plot(abiotic.pca)
+# biplot(abiotic.pca)
+# abiotic.pca.pasture <- prcomp(dplyr::select(functionalcover_pasture_plus,Sand,Silt,Clay,ppt,tmean,elev_ned,hli,topodist), center = TRUE,scale. = TRUE)
+# summary(abiotic.pca.pasture)
+# plot(abiotic.pca.pasture)
+# biplot(abiotic.pca.pasture)
 
 ## Pasture level analyses - zoomed out approach ----
 
@@ -562,6 +563,14 @@ AGcrestedbestmodel2 <- lm(log(cover+0.01) ~ elev_ned*logcattledung,data=function
 pasturemodel_AG_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledAG_n,na.action="na.fail")
 dredge(pasturemodel_AG_full_nocrested) # elevation, dung, temp, temp*dung
 AGnocrestedbestmodel <- lm(log(cover+0.01) ~ logcattledung*tmean + elev_ned,data=functionalcover_pasture_scaledAG_n,na.action="na.fail")
+# # trying new stepwise approaches to AIC model selection?
+# drop1(pasturemodel_AG_full_nocrested)
+# AGnocresteddropmodel <- drop1(pasturemodel_AG_full_nocrested,test="F")
+# AGnocresteddropmodel2 <- drop1(lm(log(cover+0.01) ~ logcattledung*(elev_ned + tmean) + ppt + FireHistory + Sand,data=functionalcover_pasture_scaledAG_n,na.action="na.fail"),test="F")
+# AGnocresteddropmodel3 <- drop1(lm(log(cover+0.01) ~ logcattledung*tmean + elev_ned,data=functionalcover_pasture_scaledAG_n,na.action="na.fail"),test="F")
+# AGnocrestedstepmodel <- step(pasturemodel_AG_full_nocrested,direction="both")
+# AGnocrestedstepmodel2 <- stepAIC(pasturemodel_AG_full_nocrested,direction="both")
+
 
 functionalcover_pasture_scaledPG_c <- functionalcover_pasture_scaledPG[functionalcover_pasture_scaledPG$Crested==T,]
 functionalcover_pasture_scaledPG_n <- functionalcover_pasture_scaledPG[functionalcover_pasture_scaledPG$Crested==F,]
@@ -803,7 +812,7 @@ functionalcover_shrubcats_pasture_plus <- functionalcover_shrubcats_pasture_plus
          logcattledung = log(CattleDung+1))
 functionalcover_shrubcats_scaled <- functionalcover_shrubcats_pasture_plus %>%
   mutate(ppt = scale(ppt,center=T,scale=T),
-         logtotaldung=scale(logtotaldung,center=T,scale=T),
+         logcattledung=scale(logcattledung,center=T,scale=T),
          tmean = scale(tmean,center=T,scale=T),
          elev_ned = scale(elev_ned,center=T,scale=T),
          Sand = scale(Sand,center=T,scale=T),
@@ -888,8 +897,9 @@ ggplot(data = subset(functionalcover_shrubcats_pasture_plus,Crested==F),aes(x=lo
 
 ### Local heterogeneity for shrub sub-groups
 
-functional_localhet_shrubcats <- functionalcover_shrubcats_plus[,c("PlotID","cover","Pasture","Slope","Sand","hli","topodist","logcattledung","Crested","FireHistory","WaterDist","Resprout")] %>%
-  mutate(logcover = log(cover+0.01)) %>%
+functional_localhet_shrubcats <- functionalcover_shrubcats_plus[,c("PlotID","cover","Pasture","Slope","Sand","hli","topodist","CattleDung","Crested","FireHistory","WaterDist","Resprout")] %>%
+  mutate(logcover = log(cover+0.01),
+         logcattledung = log(CattleDung+1)) %>%
   group_by(Pasture,Resprout) %>%
   mutate(logcattledev = logcattledung-mean(logcattledung),
          sanddev = Sand-mean(Sand),

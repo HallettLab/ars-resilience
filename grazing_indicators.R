@@ -22,7 +22,7 @@ soilkey <- read.csv("GreatBasin2021_SoilKey.csv")
 funckey <- read.csv("GreatBasin2021_SppFunctionalKey.csv")
 
 plotdata$PastureName <- recode(plotdata$PastureName, "SouthSteens" = "SouthSteens2","Canal Field" = "CanalField","SouthSteens "="SouthSteens2") # re-run cleaning script to update saved files with this
-plotdata <- left_join(plotdata,select(pastures,Pasture,Region,FireHistory),by=c("PastureName" = "Pasture"))
+plotdata <- left_join(plotdata,dplyr::select(pastures,Pasture,Region,FireHistory),by=c("PastureName" = "Pasture"))
 
 plotdata <- plotdata %>%
   mutate(WaterDist = as.numeric(sapply(strsplit(plotdata$PlotID,split="_"),"[[",2)),
@@ -39,7 +39,7 @@ aum_sum <- aum %>%
   group_by(Pasture,Year) %>%
   summarise(aum_total = sum(AUM_All),aum_public = sum(AUM_Pub)) %>%
   mutate(aum_total = replace_na(aum_total,0), aum_public = replace_na(aum_public,0)) %>%
-  left_join(select(pastureshapes,Pasture,GIS_ACRES)) %>%
+  left_join(dplyr::select(pastureshapes,Pasture,GIS_ACRES)) %>%
   mutate(aum_peracre = aum_total/GIS_ACRES)
 
 aum_avg <- aum_sum %>%
@@ -78,7 +78,7 @@ pastures <- pastures %>%
   mutate(fullwater = ifelse(pastures$CurrentWater1A==1|pastures$CurrentWater1B==1|pastures$CurrentWater2==1,1,0)) %>%
   mutate(fullwater = ifelse(is.na(fullwater), 0, fullwater))
 dungsum <- dungsum %>%
-  left_join(select(pastures,Pasture,fullwater),by="Pasture")
+  left_join(dplyr::select(pastures,Pasture,fullwater),by="Pasture")
 
 
 # Merge AUM with dung
@@ -122,8 +122,8 @@ summary(lm(log(dung_avg) ~ aum_peracre_5yrmean, data=aum_avg))
 # Average dung count within a pasture reflects 5 year mean AUM reasonably well - use it as a proxy for AUMs, rather than incorporating in analysis?
 
 # Dung vs topo cost distance from water
-dungsum_all <- left_join(dungsum_all,select(plotdata,PlotID,topodist)) %>%
-  left_join(select(pastures,Pasture,fullwater),by="Pasture")
+dungsum_all <- left_join(dungsum_all,dplyr::select(plotdata,PlotID,topodist)) %>%
+  left_join(dplyr::select(pastures,Pasture,fullwater),by="Pasture")
 
 # plot level dung counts vs topo distance from water
 ggplot(data=dungsum_all,aes(x=topodist,y=totaldung)) +
@@ -191,3 +191,30 @@ ggplot(data=plotdata,aes(x=WaterDist,y=topodist,color=Region)) +
 # how closely does HLI align with aspect?
 ggplot(data=plotdata,aes(x=Asp,y=hli)) +
   geom_boxplot()
+
+# Supplementary figures
+aumplot <- ggplot(data=aum_avg,aes(x=aum_peracre_5yrmean,y=dung_avg)) +
+  geom_point() +
+  scale_y_log10() +
+  labs(x="5 year mean AUM/acre", y="Average plot-level dung count (log axis)") +
+  geom_smooth(method="lm",se=F) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+distplot <- ggplot(data=dungsum[dungsum$Species=="cattle",],aes(x = WaterDist, y = meancount)) +
+  scale_y_log10() +
+  geom_point() + #geom_smooth(method="lm") +
+  theme_classic() +
+  labs(x="Distance from water (m)", y="Dung count per plot (log axis)")
+
+pdf(file="/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/Plots/aumplot.pdf",width=4,height=4)
+aumplot
+dev.off()
+
+pdf(file="/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/Plots/distplot.pdf",width=4,height=4)
+distplot
+dev.off()
+
+# Stats for text
+summary(lm(log(dung_avg+1) ~ aum_peracre_5yrmean, data=aum_avg))
+summary(lm(log(meancount+1) ~ WaterDist, data=dungsum[dungsum$Species=="cattle",]))

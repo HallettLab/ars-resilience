@@ -138,7 +138,7 @@ env <- dplyr::select(plotdata,PlotID) %>%
          Asp = sapply(strsplit(plotdata$PlotID,split="_"),"[[",3)
   ) %>%
   left_join(dplyr::select(pastures,Pasture,FireHistory,Region,fullwater),by="Pasture") %>%
-  left_join(dplyr::select(plotdata,PlotID,Slope,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,hli,topodist)) %>%
+  left_join(dplyr::select(plotdata,PlotID,Slope,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,hli,topodist,lastfire)) %>%
   left_join(dplyr::select(crestedonly,PlotID,Crested)) %>%
   left_join(dplyr::select(dungsum[dungsum$Species=="cattle",],PlotID,meancount),by="PlotID") %>%
   rename(CattleDung = meancount) %>%
@@ -174,9 +174,9 @@ functionalcover_pasture <- functionalcover %>%
   
 # Pasture level summaries of environmental data
 env_pasture <- env %>%
-  dplyr::select(Pasture,FireHistory,Region,fullwater,Slope,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,hli,topodist,Crested,CattleDung,totaldung,totalgap,meangap,maxgap,mediangap) %>%
+  dplyr::select(Pasture,FireHistory,Region,fullwater,Slope,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,hli,topodist,Crested,CattleDung,totaldung,totalgap,meangap,maxgap,mediangap,lastfire) %>%
   group_by(Pasture,FireHistory,Region,fullwater) %>%
-  summarise(CattleDung=mean(CattleDung),Slope = mean(Slope),Sand=mean(Sand),Silt=mean(Silt),Clay=mean(Clay),C=mean(C),N=mean(N),ppt=mean(ppt),tmean=mean(tmean),elev_ned=mean(elev_ned),totaldung=mean(totaldung),hli=mean(hli),topodist=mean(topodist),totalgap=mean(totalgap),meangap=mean(meangap),maxgap=mean(maxgap),mediangap=mean(mediangap),Crested=sum(Crested)>0)
+  summarise(CattleDung=mean(CattleDung),Slope = mean(Slope),Sand=mean(Sand),Silt=mean(Silt),Clay=mean(Clay),C=mean(C),N=mean(N),ppt=mean(ppt),tmean=mean(tmean),elev_ned=mean(elev_ned),totaldung=mean(totaldung),hli=mean(hli),topodist=mean(topodist),totalgap=mean(totalgap),meangap=mean(meangap),maxgap=mean(maxgap),mediangap=mean(mediangap),Crested=sum(Crested)>0,lastfire=mean(lastfire))
 # when complete - add in pasture-level AUM data here too
 
 plantspp_pasture_plus <- left_join(plantspp_pasture,env_pasture)
@@ -207,173 +207,173 @@ pasturenames_u_n <- pasturenames_unburned[pasturenames_unburned %in% pasturename
 
 ## NMDS ordination and visualization ----
 
-# species ordination
-# remove rare species
-plantspp_overall <- plantspp_long %>%
-  group_by(sppcode) %>%
-  summarize(plotcount = n(),plotprop = n()/267,avgcover = mean(cover))
-common <- plantspp_overall$sppcode[plantspp_overall$plotprop>0.01]
-plantspp_wide_common <- plantspp_long %>%
-  subset(sppcode %in% common) %>%
-  pivot_wider(names_from = sppcode,values_from = cover,values_fill=0)
-plantspp_matrix_common <- as.matrix(plantspp_wide_common[,-1])
-
-# all plant species
-plantspp_matrix_rel <- decostand(plantspp_matrix_common,method="total")
-set.seed(123)
-plantspp_NMS <- metaMDS(plantspp_matrix_rel,trymax=100)
-
-data.scores <- as.data.frame(scores(plantspp_NMS))
-data.scores$site <- rownames(data.scores) 
-data.scores$PlotID <- plantspp_wide$PlotID
-head(data.scores) 
-species.scores <- as.data.frame(scores(plantspp_NMS, "species"))  
-species.scores$species <- rownames(species.scores)  
-head(species.scores)  
-data.scores <- left_join(data.scores,env)
-
-ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
-  geom_point(aes(color=Region,shape=Region)) +
-  geom_text(data=species.scores,aes(label=species),alpha=0.5) +
-  theme_classic()
-ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
-  geom_point(aes(color=FireHistory,shape=Crested)) +
-  geom_text(data=species.scores,aes(label=species),alpha=0.5) +
-  theme_classic()
-
-# functional group ordination
-functional_wide <- functionalcover %>%
-  dplyr::select(PlotID,FuncGroup,cover) %>%
-  pivot_wider(names_from = FuncGroup,values_from = cover,values_fill=0)
-functional_matrix <- as.matrix(functional_wide[,-1])
-
-functional_matrix_rel <- decostand(functional_matrix,method="total")
-set.seed(123)
-functional_nms <- metaMDS(functional_matrix_rel,trymax=50)
-functional_nms <- MDSrotate(functional_nms,functional_wide$AG) # trying out rotation to AG
-
-data.scores.f <- as.data.frame(scores(functional_nms))
-data.scores.f$site <- rownames(data.scores.f) 
-data.scores.f$PlotID <- functional_wide$PlotID
-head(data.scores.f)
-species.scores.f <- as.data.frame(scores(functional_nms, "species"))
-species.scores.f$species <- rownames(species.scores.f)
-head(species.scores.f)
-
-env_matrix <- env %>%
-  dplyr::select(WaterDist,FireHistory,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung,totaldung,hli,topodist)
-en <- envfit(functional_nms, env_matrix, permutations = 999, na.rm = TRUE)
-en_coord_cont = as.data.frame(scores(en, "vectors")) * 4 #* ordiArrowMul(en)
-en_coord_cat = as.data.frame(scores(en, "factors")) * 4 #* ordiArrowMul(en)
-
-data.scores.f <- data.scores.f %>%
-  left_join(env) %>%
-  mutate(Fire.Crested = as.factor(paste(FireHistory,Crested)),FireHistory = as.factor(FireHistory),Crested=as.factor(Crested))
-
-# Environmental vectors
-ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
-  geom_point(aes(color=Region,shape=Region)) +
-  #geom_text(data=species.scores.f,aes(label=species)) +
-  theme_classic() +
-  geom_text(data = en_coord_cont, aes(x = NMDS1, y = NMDS2), label = row.names(en_coord_cont)) 
-ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
-  geom_point(aes(color=Region,shape=Region)) +
-  #geom_text(data=species.scores.f,aes(label=species)) +
-  theme_classic() +
-  geom_text(data = en_coord_cat, aes(x = NMDS1, y = NMDS2), label = row.names(en_coord_cat))
-
-# Fire history
-ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
-  geom_point(aes(color=FireHistory)) +
-  geom_text(data=species.scores.f,aes(label=species)) +
-  theme_classic()
-
-# Crested
-ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
-  geom_point(aes(color=Crested)) +
-  geom_text(data=species.scores.f,aes(label=species)) +
-  theme_classic()
-
-# Fire x crested
-ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
-  geom_point(aes(color=Crested,shape=FireHistory)) +
-  geom_text(data=species.scores.f,aes(label=species)) +
-  theme_classic()
-ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
-  geom_point(aes(color=Fire.Crested)) +
-  geom_text(data=species.scores.f,aes(label=species)) +
-  theme_classic()
-
-# Plot with convex hulls for fire x crested - https://chrischizinski.github.io/rstats/vegan-ggplot2/
-grp.a <- data.scores.f[data.scores.f$Fire.Crested == "Burned FALSE", ][chull(data.scores.f[data.scores.f$Fire.Crested == "Burned FALSE", c("NMDS1", "NMDS2")]), ] 
-grp.b <- data.scores.f[data.scores.f$Fire.Crested == "Burned TRUE", ][chull(data.scores.f[data.scores.f$Fire.Crested == "Burned TRUE", c("NMDS1", "NMDS2")]), ] 
-grp.c <- data.scores.f[data.scores.f$Fire.Crested == "Unburned FALSE", ][chull(data.scores.f[data.scores.f$Fire.Crested == "Unburned FALSE", c("NMDS1", "NMDS2")]), ] 
-grp.d <- data.scores.f[data.scores.f$Fire.Crested == "Unburned TRUE", ][chull(data.scores.f[data.scores.f$Fire.Crested == "Unburned TRUE", c("NMDS1", "NMDS2")]), ] 
-
-hull.data <- rbind(grp.a, grp.b,grp.c,grp.d)
-hull.data
-
-
-ggplot() + 
-  geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS2,fill=Fire.Crested,group=Fire.Crested),alpha=0.30) + # add the convex hulls
-  geom_text(data=species.scores.f,aes(x=NMDS1,y=NMDS2,label=species),alpha=0.5) +  # add the species labels
-  geom_point(data=data.scores.f,aes(x=NMDS1,y=NMDS2,shape=Fire.Crested,colour=Fire.Crested),size=4) + # add the point markers
-  coord_equal() +
-  theme_bw() + 
-  theme(axis.text.x = element_blank(),  # remove x-axis text
-        axis.text.y = element_blank(), # remove y-axis text
-        axis.ticks = element_blank(),  # remove axis ticks
-        axis.title.x = element_text(size=18), # remove x-axis labels
-        axis.title.y = element_text(size=18), # remove y-axis labels
-        panel.background = element_blank(), 
-        panel.grid.major = element_blank(),  #remove major-grid labels
-        panel.grid.minor = element_blank(),  #remove minor-grid labels
-        plot.background = element_blank())
-
-# Plot with ellipses for fire x crested
-# function for ellipsess 
-veganCovEllipse <- function (cov, center = c(0, 0), scale = 1, npoints = 100) 
-{
-  theta <- (0:npoints) * 2 * pi/npoints
-  Circle <- cbind(cos(theta), sin(theta))
-  t(center + scale * t(Circle %*% chol(cov)))
-}
-
-#data for ellipse, in this case using the management factor
-df_ell.fc <- data.frame() #sets up a data frame before running the function.
-for(g in levels(data.scores.f$Fire.Crested)){
-  df_ell.fc <- rbind(df_ell.fc, cbind(as.data.frame(with(data.scores.f[data.scores.f$Fire.Crested==g,],                                                                       veganCovEllipse(cov.wt(cbind(NMDS1,NMDS2),wt=rep(1/length(NMDS1),length(NMDS1)))$cov,center=c(mean(NMDS1),mean(NMDS2))))) ,Fire.Crested=g))
-}
-
-ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
-  geom_point(aes(color=Fire.Crested)) +
-  geom_text(data=species.scores.f,aes(label=species)) +
-  theme_classic() +
-  geom_path(data = df_ell.fc, aes(x = NMDS1, y = NMDS2, group = Fire.Crested,color=Fire.Crested))
-
-#data for ellipse, in this case using the management factor
-df_ell.fire <- data.frame() #sets up a data frame before running the function.
-for(g in levels(data.scores.f$FireHistory)){
-  df_ell.fire <- rbind(df_ell.fire, cbind(as.data.frame(with(data.scores.f[data.scores.f$FireHistory==g,],                                                                       veganCovEllipse(cov.wt(cbind(NMDS1,NMDS2),wt=rep(1/length(NMDS1),length(NMDS1)))$cov,center=c(mean(NMDS1),mean(NMDS2))))) ,FireHistory=g))
-}
-
-ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
-  geom_point(aes(color=FireHistory)) +
-  geom_text(data=species.scores.f,aes(label=species)) +
-  theme_classic() +
-  geom_path(data = df_ell.fire, aes(x = NMDS1, y = NMDS2, group = FireHistory,color=FireHistory))
-
-#data for ellipse, in this case using the management factor
-df_ell.c <- data.frame() #sets up a data frame before running the function.
-for(g in levels(data.scores.f$Crested)){
-  df_ell.c <- rbind(df_ell.c, cbind(as.data.frame(with(data.scores.f[data.scores.f$Crested==g,],                                                                       veganCovEllipse(cov.wt(cbind(NMDS1,NMDS2),wt=rep(1/length(NMDS1),length(NMDS1)))$cov,center=c(mean(NMDS1),mean(NMDS2))))) ,Crested=g))
-}
-
-ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
-  geom_point(aes(color=Crested)) +
-  geom_text(data=species.scores.f,aes(label=species)) +
-  theme_classic() +
-  geom_path(data = df_ell.c, aes(x = NMDS1, y = NMDS2, group = Crested,color=Crested))
+# # species ordination
+# # remove rare species
+# plantspp_overall <- plantspp_long %>%
+#   group_by(sppcode) %>%
+#   summarize(plotcount = n(),plotprop = n()/267,avgcover = mean(cover))
+# common <- plantspp_overall$sppcode[plantspp_overall$plotprop>0.01]
+# plantspp_wide_common <- plantspp_long %>%
+#   subset(sppcode %in% common) %>%
+#   pivot_wider(names_from = sppcode,values_from = cover,values_fill=0)
+# plantspp_matrix_common <- as.matrix(plantspp_wide_common[,-1])
+# 
+# # all plant species
+# plantspp_matrix_rel <- decostand(plantspp_matrix_common,method="total")
+# set.seed(123)
+# plantspp_NMS <- metaMDS(plantspp_matrix_rel,trymax=100)
+# 
+# data.scores <- as.data.frame(scores(plantspp_NMS))
+# data.scores$site <- rownames(data.scores) 
+# data.scores$PlotID <- plantspp_wide$PlotID
+# head(data.scores) 
+# species.scores <- as.data.frame(scores(plantspp_NMS, "species"))  
+# species.scores$species <- rownames(species.scores)  
+# head(species.scores)  
+# data.scores <- left_join(data.scores,env)
+# 
+# ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Region,shape=Region)) +
+#   geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+#   theme_classic()
+# ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=FireHistory,shape=Crested)) +
+#   geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+#   theme_classic()
+# 
+# # functional group ordination
+# functional_wide <- functionalcover %>%
+#   dplyr::select(PlotID,FuncGroup,cover) %>%
+#   pivot_wider(names_from = FuncGroup,values_from = cover,values_fill=0)
+# functional_matrix <- as.matrix(functional_wide[,-1])
+# 
+# functional_matrix_rel <- decostand(functional_matrix,method="total")
+# set.seed(123)
+# functional_nms <- metaMDS(functional_matrix_rel,trymax=50)
+# functional_nms <- MDSrotate(functional_nms,functional_wide$AG) # trying out rotation to AG
+# 
+# data.scores.f <- as.data.frame(scores(functional_nms))
+# data.scores.f$site <- rownames(data.scores.f) 
+# data.scores.f$PlotID <- functional_wide$PlotID
+# head(data.scores.f)
+# species.scores.f <- as.data.frame(scores(functional_nms, "species"))
+# species.scores.f$species <- rownames(species.scores.f)
+# head(species.scores.f)
+# 
+# env_matrix <- env %>%
+#   dplyr::select(WaterDist,FireHistory,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung,totaldung,hli,topodist)
+# en <- envfit(functional_nms, env_matrix, permutations = 999, na.rm = TRUE)
+# en_coord_cont = as.data.frame(scores(en, "vectors")) * 4 #* ordiArrowMul(en)
+# en_coord_cat = as.data.frame(scores(en, "factors")) * 4 #* ordiArrowMul(en)
+# 
+# data.scores.f <- data.scores.f %>%
+#   left_join(env) %>%
+#   mutate(Fire.Crested = as.factor(paste(FireHistory,Crested)),FireHistory = as.factor(FireHistory),Crested=as.factor(Crested))
+# 
+# # Environmental vectors
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Region,shape=Region)) +
+#   #geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic() +
+#   geom_text(data = en_coord_cont, aes(x = NMDS1, y = NMDS2), label = row.names(en_coord_cont)) 
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Region,shape=Region)) +
+#   #geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic() +
+#   geom_text(data = en_coord_cat, aes(x = NMDS1, y = NMDS2), label = row.names(en_coord_cat))
+# 
+# # Fire history
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=FireHistory)) +
+#   geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic()
+# 
+# # Crested
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Crested)) +
+#   geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic()
+# 
+# # Fire x crested
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Crested,shape=FireHistory)) +
+#   geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic()
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Fire.Crested)) +
+#   geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic()
+# 
+# # Plot with convex hulls for fire x crested - https://chrischizinski.github.io/rstats/vegan-ggplot2/
+# grp.a <- data.scores.f[data.scores.f$Fire.Crested == "Burned FALSE", ][chull(data.scores.f[data.scores.f$Fire.Crested == "Burned FALSE", c("NMDS1", "NMDS2")]), ] 
+# grp.b <- data.scores.f[data.scores.f$Fire.Crested == "Burned TRUE", ][chull(data.scores.f[data.scores.f$Fire.Crested == "Burned TRUE", c("NMDS1", "NMDS2")]), ] 
+# grp.c <- data.scores.f[data.scores.f$Fire.Crested == "Unburned FALSE", ][chull(data.scores.f[data.scores.f$Fire.Crested == "Unburned FALSE", c("NMDS1", "NMDS2")]), ] 
+# grp.d <- data.scores.f[data.scores.f$Fire.Crested == "Unburned TRUE", ][chull(data.scores.f[data.scores.f$Fire.Crested == "Unburned TRUE", c("NMDS1", "NMDS2")]), ] 
+# 
+# hull.data <- rbind(grp.a, grp.b,grp.c,grp.d)
+# hull.data
+# 
+# 
+# ggplot() + 
+#   geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS2,fill=Fire.Crested,group=Fire.Crested),alpha=0.30) + # add the convex hulls
+#   geom_text(data=species.scores.f,aes(x=NMDS1,y=NMDS2,label=species),alpha=0.5) +  # add the species labels
+#   geom_point(data=data.scores.f,aes(x=NMDS1,y=NMDS2,shape=Fire.Crested,colour=Fire.Crested),size=4) + # add the point markers
+#   coord_equal() +
+#   theme_bw() + 
+#   theme(axis.text.x = element_blank(),  # remove x-axis text
+#         axis.text.y = element_blank(), # remove y-axis text
+#         axis.ticks = element_blank(),  # remove axis ticks
+#         axis.title.x = element_text(size=18), # remove x-axis labels
+#         axis.title.y = element_text(size=18), # remove y-axis labels
+#         panel.background = element_blank(), 
+#         panel.grid.major = element_blank(),  #remove major-grid labels
+#         panel.grid.minor = element_blank(),  #remove minor-grid labels
+#         plot.background = element_blank())
+# 
+# # Plot with ellipses for fire x crested
+# # function for ellipsess 
+# veganCovEllipse <- function (cov, center = c(0, 0), scale = 1, npoints = 100) 
+# {
+#   theta <- (0:npoints) * 2 * pi/npoints
+#   Circle <- cbind(cos(theta), sin(theta))
+#   t(center + scale * t(Circle %*% chol(cov)))
+# }
+# 
+# #data for ellipse, in this case using the management factor
+# df_ell.fc <- data.frame() #sets up a data frame before running the function.
+# for(g in levels(data.scores.f$Fire.Crested)){
+#   df_ell.fc <- rbind(df_ell.fc, cbind(as.data.frame(with(data.scores.f[data.scores.f$Fire.Crested==g,],                                                                       veganCovEllipse(cov.wt(cbind(NMDS1,NMDS2),wt=rep(1/length(NMDS1),length(NMDS1)))$cov,center=c(mean(NMDS1),mean(NMDS2))))) ,Fire.Crested=g))
+# }
+# 
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Fire.Crested)) +
+#   geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic() +
+#   geom_path(data = df_ell.fc, aes(x = NMDS1, y = NMDS2, group = Fire.Crested,color=Fire.Crested))
+# 
+# #data for ellipse, in this case using the management factor
+# df_ell.fire <- data.frame() #sets up a data frame before running the function.
+# for(g in levels(data.scores.f$FireHistory)){
+#   df_ell.fire <- rbind(df_ell.fire, cbind(as.data.frame(with(data.scores.f[data.scores.f$FireHistory==g,],                                                                       veganCovEllipse(cov.wt(cbind(NMDS1,NMDS2),wt=rep(1/length(NMDS1),length(NMDS1)))$cov,center=c(mean(NMDS1),mean(NMDS2))))) ,FireHistory=g))
+# }
+# 
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=FireHistory)) +
+#   geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic() +
+#   geom_path(data = df_ell.fire, aes(x = NMDS1, y = NMDS2, group = FireHistory,color=FireHistory))
+# 
+# #data for ellipse, in this case using the management factor
+# df_ell.c <- data.frame() #sets up a data frame before running the function.
+# for(g in levels(data.scores.f$Crested)){
+#   df_ell.c <- rbind(df_ell.c, cbind(as.data.frame(with(data.scores.f[data.scores.f$Crested==g,],                                                                       veganCovEllipse(cov.wt(cbind(NMDS1,NMDS2),wt=rep(1/length(NMDS1),length(NMDS1)))$cov,center=c(mean(NMDS1),mean(NMDS2))))) ,Crested=g))
+# }
+# 
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Crested)) +
+#   geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic() +
+#   geom_path(data = df_ell.c, aes(x = NMDS1, y = NMDS2, group = Crested,color=Crested))
 
 
 ## Single species and single functional group multivariate analyses ----
@@ -441,43 +441,43 @@ sum(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="F"]==0) # fo
 # next: binomial model for presence/absence + linear model for log abundance given presence?
 # decide what to do about question mark presences
 
-# AG model only where AG is present
-functionalcover_scaledAG_pres <- functionalcover_scaledAG[functionalcover_scaledAG$cover>0,]
-functionalcover_scaledAG_pres$logcover <- log(functionalcover_scaledAG_pres$cover)
-AGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=functionalcover_scaledAG_pres,na.action="na.fail",REML=F)
-dredge(AGcover_fullmodel) # best model: elevation and HLI
-# with crested as variable
-AGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=functionalcover_scaledAG_pres,na.action="na.fail",REML=F)
-dredge(AGcover_fullmodel) # best model: crested, elevation, HLI
-
-# BRTE model only where BRTE is present
-BRTE_scaled_pres <- BRTE_scaled[BRTE_scaled$cover>0,]
-BRTE_scaled_pres$logcover <- log(BRTE_scaled_pres$cover)
-BRTEcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=BRTE_scaled_pres,na.action="na.fail",REML=F)
-dredge(BRTEcover_fullmodel) # best model: HLI*grazing
-# with crested as variable
-BRTEcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=BRTE_scaled_pres,na.action="na.fail",REML=F)
-dredge(BRTEcover_fullmodel) # best model: crested, HLI, ppt
-# nested by region and pasture - singular
-BRTEcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Region/Pasture),data=BRTE_scaled_pres,na.action="na.fail",REML=F)
-dredge(BRTEcover_fullmodel)
-
-# PG model
-functionalcover_scaledPG$logcover <- log(functionalcover_scaledPG$cover)
-PGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=functionalcover_scaledPG,na.action="na.fail",REML=F)
-dredge(PGcover_fullmodel) # best model: fire history, HLI, ppt
-# with crested as variable
-PGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=functionalcover_scaledPG,na.action="na.fail",REML=F)
-dredge(PGcover_fullmodel) # best model: crested, fire, HLI, ppt
-
-# shrub model only where shrubs are present
-functionalcover_scaledS_pres <- functionalcover_scaledS[functionalcover_scaledS$cover>0,]
-functionalcover_scaledS_pres$logcover <- log(functionalcover_scaledS_pres$cover)
-Scover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=functionalcover_scaledS_pres,na.action="na.fail",REML=F)
-dredge(Scover_fullmodel) # best model: fire history, HLI, ppt
-# with crested as variable
-Scover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=functionalcover_scaledS_pres,na.action="na.fail",REML=F)
-dredge(Scover_fullmodel)
+# # AG model only where AG is present
+# functionalcover_scaledAG_pres <- functionalcover_scaledAG[functionalcover_scaledAG$cover>0,]
+# functionalcover_scaledAG_pres$logcover <- log(functionalcover_scaledAG_pres$cover)
+# AGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=functionalcover_scaledAG_pres,na.action="na.fail",REML=F)
+# dredge(AGcover_fullmodel) # best model: elevation and HLI
+# # with crested as variable
+# AGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=functionalcover_scaledAG_pres,na.action="na.fail",REML=F)
+# dredge(AGcover_fullmodel) # best model: crested, elevation, HLI
+# 
+# # BRTE model only where BRTE is present
+# BRTE_scaled_pres <- BRTE_scaled[BRTE_scaled$cover>0,]
+# BRTE_scaled_pres$logcover <- log(BRTE_scaled_pres$cover)
+# BRTEcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=BRTE_scaled_pres,na.action="na.fail",REML=F)
+# dredge(BRTEcover_fullmodel) # best model: HLI*grazing
+# # with crested as variable
+# BRTEcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=BRTE_scaled_pres,na.action="na.fail",REML=F)
+# dredge(BRTEcover_fullmodel) # best model: crested, HLI, ppt
+# # nested by region and pasture - singular
+# BRTEcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Region/Pasture),data=BRTE_scaled_pres,na.action="na.fail",REML=F)
+# dredge(BRTEcover_fullmodel)
+# 
+# # PG model
+# functionalcover_scaledPG$logcover <- log(functionalcover_scaledPG$cover)
+# PGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=functionalcover_scaledPG,na.action="na.fail",REML=F)
+# dredge(PGcover_fullmodel) # best model: fire history, HLI, ppt
+# # with crested as variable
+# PGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=functionalcover_scaledPG,na.action="na.fail",REML=F)
+# dredge(PGcover_fullmodel) # best model: crested, fire, HLI, ppt
+# 
+# # shrub model only where shrubs are present
+# functionalcover_scaledS_pres <- functionalcover_scaledS[functionalcover_scaledS$cover>0,]
+# functionalcover_scaledS_pres$logcover <- log(functionalcover_scaledS_pres$cover)
+# Scover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=functionalcover_scaledS_pres,na.action="na.fail",REML=F)
+# dredge(Scover_fullmodel) # best model: fire history, HLI, ppt
+# # with crested as variable
+# Scover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=functionalcover_scaledS_pres,na.action="na.fail",REML=F)
+# dredge(Scover_fullmodel)
 
 ### Abiotic PCs ----
 # abiotic.pca <- prcomp(dplyr::select(plotdata,Sand,Silt,Clay,ppt,tmean,elev_ned,hli,topodist), center = TRUE,scale. = TRUE)
@@ -760,6 +760,7 @@ dredge(AG_localhet_fullmodel_n)
 # topodist: just hli
 # topodistindex: just hli
 # waterdist: just hli
+AG_localhet_bestmodel_n <- lm(logcoverdev ~ hli,data=AG_localhet_scaled_n,na.action="na.fail")
 
 PG_localhet_fullmodel_c <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=PG_localhet_scaled_c,na.action="na.fail")
 dredge(PG_localhet_fullmodel_c) 
@@ -771,6 +772,7 @@ dredge(PG_localhet_fullmodel_n)
 # topodist: hli*potential, topodist
 # topodistindex: hli*potential, topodistindex
 # waterdist: hli*potential, sand, waterdist
+PG_localhet_bestmodel_n <- lm(logcoverdev ~ potential*hli + WaterDist + sanddev,data=PG_localhet_scaled_n,na.action="na.fail")
 
 S_localhet_fullmodel_c <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=S_localhet_scaled_c,na.action="na.fail")
 dredge(S_localhet_fullmodel_c) 
@@ -958,6 +960,7 @@ S_no_localhet_scaled <- S_no_localhet %>%
 
 S_re_localhet_fullmodel <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=S_re_localhet_scaled,na.action="na.fail")
 dredge(S_re_localhet_fullmodel) # log cattle dung and slope
+summary(lm(logcoverdev ~ logcattledev + Slope,data=S_re_localhet_scaled,na.action="na.fail"))
 
 S_no_localhet_fullmodel <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=S_no_localhet_scaled,na.action="na.fail")
 dredge(S_no_localhet_fullmodel) # hli, log cattle dung, sand*potential, waterdist*potential 
@@ -972,3 +975,61 @@ ggplot(data=S_no_localhet,aes(x=sanddev,y=logcoverdev,fill=potential)) +
   geom_smooth(method="lm",se=F,color="#dd3497",data = S_no_localhet) +
   geom_smooth(method="lm",se=F,color="#7a0177",data = subset(S_no_localhet, potential>mean(potential))) +
   geom_smooth(method="lm",se=F,color="#fa9fb5",data = subset(S_no_localhet, potential<mean(potential)))
+
+# Time since fire
+# Time since fire
+functionalcover_pasture_firecont <- functionalcover_pasture_plus %>%
+  filter(lastfire>500&Crested==F) %>%
+  mutate(timesincefire = 2021-lastfire)
+functionalcover_pasture_firecont_shrubcats <- functionalcover_shrubcats_pasture_plus %>%
+  filter(lastfire>500&Crested==F) %>%
+  mutate(timesincefire = 2021-lastfire)
+
+ggplot(data=functionalcover_pasture_firecont,aes(x=timesincefire,y=log(cover+0.01))) + 
+  geom_point() +
+  facet_wrap(.~FuncGroup) +
+  geom_smooth(method="lm")
+
+ggplot(data=functionalcover_pasture_firecont_shrubcats,aes(x=2021-lastfire,y=log(cover+0.01))) + 
+  geom_point() +
+  facet_wrap(.~Resprout) +
+  geom_smooth(method="lm")
+
+AGlastfiremodel <- lm(log(cover+0.01)~timesincefire,data=subset(functionalcover_pasture_firecont,FuncGroup=="AG"))
+summary(AGlastfiremodel)
+
+PGlastfiremodel <- lm(log(cover+0.01)~timesincefire,data=subset(functionalcover_pasture_firecont,FuncGroup=="PG"))
+summary(PGlastfiremodel)
+
+SRlastfiremodel <- lm(log(cover+0.01)~timesincefire,data=subset(functionalcover_pasture_firecont_shrubcats,Resprout==1))
+summary(SRlastfiremodel)
+
+SNlastfiremodel <- lm(log(cover+0.01)~timesincefire,data=subset(functionalcover_pasture_firecont_shrubcats,Resprout==0))
+summary(SNlastfiremodel)
+
+
+# correlations among functional groups
+covergrasses_nocrested <- functionalcover_pasture_plus %>%
+  filter(Crested==F) %>%
+  filter(FuncGroup=="AG"|FuncGroup=="PG") %>%
+  dplyr::select(Pasture,FuncGroup,cover)
+covershrubcats_nocrested <- functionalcover_shrubcats_pasture_plus %>%
+  filter(Crested==F) %>%
+  dplyr::select(Pasture,Resprout,cover) %>%
+  rename(FuncGroup=Resprout) %>%
+  mutate(FuncGroup=recode(as.character(FuncGroup),"1"="SR","0"="SN"))
+cover4classes <- rbind(covergrasses_nocrested,covershrubcats_nocrested) %>%
+  spread(FuncGroup,cover)
+cor(cover4classes[,2:5])
+cor(log(cover4classes[,2:5]+0.01))
+
+
+# summary values
+min(functionalcover_pasture_plus$cover[functionalcover_pasture_plus$FuncGroup=="AG"&functionalcover_pasture_plus$Crested==F])
+max(functionalcover_pasture_plus$cover[functionalcover_pasture_plus$FuncGroup=="AG"&functionalcover_pasture_plus$Crested==F])
+min(functionalcover_pasture_plus$cover[functionalcover_pasture_plus$FuncGroup=="PG"&functionalcover_pasture_plus$Crested==F])
+max(functionalcover_pasture_plus$cover[functionalcover_pasture_plus$FuncGroup=="PG"&functionalcover_pasture_plus$Crested==F])
+min(functionalcover_shrubcats_plus$cover[functionalcover_shrubcats_plus$Resprout==1&functionalcover_shrubcats_plus$Crested==F])
+max(functionalcover_shrubcats_plus$cover[functionalcover_shrubcats_plus$Resprout==1&functionalcover_shrubcats_plus$Crested==F])
+min(functionalcover_shrubcats_plus$cover[functionalcover_shrubcats_plus$Resprout==0&functionalcover_shrubcats_plus$Crested==F])
+max(functionalcover_shrubcats_plus$cover[functionalcover_shrubcats_plus$Resprout==0&functionalcover_shrubcats_plus$Crested==F])

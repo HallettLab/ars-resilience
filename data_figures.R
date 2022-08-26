@@ -628,7 +628,7 @@ localhet_nocrested <- plot_grid(AGp5_nc,PGp5_nc,SRp5_nc,SNp5_nc,
                                 AGp4_nc,PGp4_nc,SRp4_nc,SNp4_nc,
                                 AGp3_nc,PGp3_nc,SRp3_nc,SNp3_nc,
                                 AGlegend,PGlegend,SRlegend,SNlegend,
-                                nrow=6)
+                                nrow=6,labels="auto")
 
 # plots arranged with functional groups side by side ----
 
@@ -940,7 +940,59 @@ regionalplots_nocrested <- plot_grid(AGnc1,PGnc1,SRnc1,SNnc1,
                                      AGnc5,PGnc5,SRnc5,SNnc5,
                                      AGnc4,PGnc4,SRnc4,SNnc4,
                                      AGnc6,PGnc6,SRnc6,SNnc6,
-                                     nrow=6)
+                                     nrow=6,labels="auto")
+
+#### Time since fire ----
+
+group.labs <- c("Annual grasses","Perennial grasses","Resprouting shrubs","Non-resprouting shrubs")
+names(group.labs) <- c("AG","PG","1","0")
+
+AG_tfire <- ggplot(data=subset(functionalcover_pasture_firecont,FuncGroup=="AG"),aes(x=timesincefire,y=cover+0.01)) + 
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  geom_point(aes(fill=cover),shape=21,size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=agcolors) +
+  facet_wrap(.~FuncGroup,labeller=labeller(FuncGroup=group.labs)) +
+  #geom_smooth(method="lm",se=F,color="#777777",linetype="longdash") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.background =element_rect(fill="white")) +
+  labs(x = "Time since fire (years)",y = element_blank())
+
+PG_tfire <- ggplot(data=subset(functionalcover_pasture_firecont,FuncGroup=="PG"),aes(x=timesincefire,y=cover+0.01)) + 
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  geom_point(aes(fill=cover),shape=21,size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=pgcolors) +
+  facet_wrap(.~FuncGroup,labeller=labeller(FuncGroup=group.labs)) +
+  geom_smooth(method="lm",se=F,color="#777777",linetype="longdash") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.background =element_rect(fill="white")) +
+  labs(x = "Time since fire (years)",y = element_blank())
+
+SR_tfire <- ggplot(data=subset(functionalcover_pasture_firecont_shrubcats,Resprout==1),aes(x=timesincefire,y=cover+0.01)) + 
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  geom_point(aes(fill=cover),shape=21,size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=shrubcolors) +
+  facet_wrap(.~Resprout,labeller=labeller(Resprout=group.labs)) +
+  geom_smooth(method="lm",se=F,color="#777777",linetype="longdash") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.background =element_rect(fill="white")) +
+  labs(x = "Time since fire (years)",y = element_blank())
+
+SN_tfire <- ggplot(data=subset(functionalcover_pasture_firecont_shrubcats,Resprout==0),aes(x=timesincefire,y=cover+0.01)) + 
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  geom_point(aes(fill=cover),shape=21,size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=shrubcolors_non) +
+  facet_wrap(.~Resprout,labeller=labeller(Resprout=group.labs)) +
+  #geom_smooth(method="lm",se=F,color="#777777",linetype="longdash") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.background =element_rect(fill="white")) +
+  labs(x = "Time since fire (years)",y = element_blank())
+
+tfireplots <- plot_grid(AG_tfire,PG_tfire,SR_tfire,SN_tfire,nrow=2)
+
 
 #### Save plots to PDF, finish annotating in Inkscape ----
 setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/Plots/")
@@ -971,4 +1023,8 @@ dev.off()
 
 pdf(file="localhet_nocrested.pdf",width=7,height=10)
 localhet_nocrested
+dev.off()
+
+pdf(file="tfireplots.pdf",width=4,height=4)
+tfireplots
 dev.off()

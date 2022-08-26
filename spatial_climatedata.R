@@ -9,7 +9,11 @@ setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/Fie
 # precipitation and temperature (PRISM 30 year normals)
 ppt <- raster("ClimateData/PRISM_ppt_30yr_normal_800mM3_annual_bil/PRISM_ppt_30yr_normal_800mM3_annual_bil.bil")
 tmean <- raster("ClimateData/PRISM_tmean_30yr_normal_800mM3_annual_bil/PRISM_tmean_30yr_normal_800mM3_annual_bil.bil")
-chili <- raster("ClimateData/CHILI.tif")
+#chili <- raster("ClimateData/CHILI.tif")
+
+# raster of years of most recent fire
+lastfire <- raster("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/GreatBasinResilience_GIS/SiteSelection2021/LastFire.tif")
+lastfire <- projectRaster(lastfire,crs="+proj=longlat +datum=NAD83 +no_defs",filename="/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/ClimateData/lastfire_longlat.tif")
 
 # elevation (USDS NED 10 m)
 
@@ -63,6 +67,7 @@ plotpts <- SpatialPointsDataFrame(dplyr::select(plotdata,Longitude,Latitude),dat
 plotdata$ppt <- raster::extract(ppt,plotpts)
 plotdata$tmean <- raster::extract(tmean,plotpts)
 plotdata$elev_ned <- raster::extract(elev,plotpts)
+plotdata$lastfire <- raster::extract(lastfire,plotpts)
 
 # import heat load index rasters and extract values for plot points
 hlifiles <- list.files("ClimateData/HeatLoadIndex",pattern=".tif$")

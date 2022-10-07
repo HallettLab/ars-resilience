@@ -527,7 +527,7 @@ ggplot(functionalcover_pasture_plus, aes(x=tmean,y=log(cover+0.01))) +
 # variables need to be scaled for interaction terms
 functionalcover_pasture_plus <- functionalcover_pasture_plus %>%
   mutate(logcattledung = log(CattleDung + 1)) 
-functionalcover_pasture_scaled <- functionalcover_pasture_plus %>%
+functionalcover_pasture_scaled <- functionalcover_pasture_plus[functionalcover_pasture_plus$Crested==F,] %>%
   ungroup() %>%
   group_by(FuncGroup) %>%
   mutate(ppt = scale(ppt,center=T,scale=T),
@@ -543,23 +543,23 @@ functionalcover_pasture_scaledS <- functionalcover_pasture_scaled[functionalcove
 res <- cor(functionalcover_pasture_plus[,c("ppt","logcattledung","tmean","elev_ned","Sand","Silt","Clay","C","N")])
 round(res, 2)
 
-pasturemodel_AG_full <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand + Crested),data=functionalcover_pasture_scaledAG,na.action="na.fail")
-dredge(pasturemodel_AG_full)
-# Crested + elevation is best model
-summary(lm(log(cover+0.01) ~ elev_ned + Crested,data=functionalcover_pasture_plus_AG,na.action="na.fail"))
-pasturemodel_AG_full <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledAG,na.action="na.fail")
-dredge(pasturemodel_AG_full)
-# without crested, elev + sand is best model (but fire history and cattle dung also in top models)
+# pasturemodel_AG_full <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand + Crested),data=functionalcover_pasture_scaledAG,na.action="na.fail")
+# dredge(pasturemodel_AG_full)
+# # Crested + elevation is best model
+# #summary(lm(log(cover+0.01) ~ elev_ned + Crested,data=functionalcover_pasture_plus_AG,na.action="na.fail"))
+# pasturemodel_AG_full <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledAG,na.action="na.fail")
+# dredge(pasturemodel_AG_full)
+# # without crested, elev + sand is best model (but fire history and cattle dung also in top models)
 
 # Decision: communities with Crested are qualitatively different - split into crested and non-crested subsets for analysis
 
-functionalcover_pasture_scaledAG_c <- functionalcover_pasture_scaledAG[functionalcover_pasture_scaledAG$Crested==T,]
+# functionalcover_pasture_scaledAG_c <- functionalcover_pasture_scaledAG[functionalcover_pasture_scaledAG$Crested==T,]
 functionalcover_pasture_scaledAG_n <- functionalcover_pasture_scaledAG[functionalcover_pasture_scaledAG$Crested==F,]
 
-pasturemodel_AG_full_crested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledAG_c,na.action="na.fail")
-dredge(pasturemodel_AG_full_crested) # ppt + sand, followed by elev*dung
-AGcrestedbestmodel <- lm(log(cover+0.01) ~ ppt + Sand,data=functionalcover_pasture_scaledAG_c,na.action="na.fail")
-AGcrestedbestmodel2 <- lm(log(cover+0.01) ~ elev_ned*logcattledung,data=functionalcover_pasture_scaledAG_c,na.action="na.fail")
+# pasturemodel_AG_full_crested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledAG_c,na.action="na.fail")
+# dredge(pasturemodel_AG_full_crested) # ppt + sand, followed by elev*dung
+# AGcrestedbestmodel <- lm(log(cover+0.01) ~ ppt + Sand,data=functionalcover_pasture_scaledAG_c,na.action="na.fail")
+# AGcrestedbestmodel2 <- lm(log(cover+0.01) ~ elev_ned*logcattledung,data=functionalcover_pasture_scaledAG_c,na.action="na.fail")
 pasturemodel_AG_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledAG_n,na.action="na.fail")
 dredge(pasturemodel_AG_full_nocrested) # elevation, dung, temp, temp*dung
 AGnocrestedbestmodel <- lm(log(cover+0.01) ~ logcattledung*tmean + elev_ned,data=functionalcover_pasture_scaledAG_n,na.action="na.fail")
@@ -572,26 +572,26 @@ AGnocrestedbestmodel <- lm(log(cover+0.01) ~ logcattledung*tmean + elev_ned,data
 # AGnocrestedstepmodel2 <- stepAIC(pasturemodel_AG_full_nocrested,direction="both")
 
 
-functionalcover_pasture_scaledPG_c <- functionalcover_pasture_scaledPG[functionalcover_pasture_scaledPG$Crested==T,]
+#functionalcover_pasture_scaledPG_c <- functionalcover_pasture_scaledPG[functionalcover_pasture_scaledPG$Crested==T,]
 functionalcover_pasture_scaledPG_n <- functionalcover_pasture_scaledPG[functionalcover_pasture_scaledPG$Crested==F,]
 
-pasturemodel_PG_full_crested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledPG_c,na.action="na.fail")
-dredge(pasturemodel_PG_full_crested) # fire history or precip
-PGcrestedbestmodel1 <- lm(log(cover+0.01) ~ FireHistory ,data=functionalcover_pasture_scaledPG_c,na.action="na.fail")
-PGcrestedbestmodel2 <- lm(log(cover+0.01) ~ ppt ,data=functionalcover_pasture_scaledPG_c,na.action="na.fail")
+# pasturemodel_PG_full_crested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledPG_c,na.action="na.fail")
+# dredge(pasturemodel_PG_full_crested) # fire history or precip
+# PGcrestedbestmodel1 <- lm(log(cover+0.01) ~ FireHistory ,data=functionalcover_pasture_scaledPG_c,na.action="na.fail")
+# PGcrestedbestmodel2 <- lm(log(cover+0.01) ~ ppt ,data=functionalcover_pasture_scaledPG_c,na.action="na.fail")
 pasturemodel_PG_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledPG_n,na.action="na.fail")
 dredge(pasturemodel_PG_full_nocrested) # elev, fire history, ppt, sand, tmean
 PGnocrestedbestmodel <- lm(log(cover+0.01) ~ elev_ned + ppt + tmean + FireHistory + Sand,data=functionalcover_pasture_scaledPG_n,na.action="na.fail")
 
-functionalcover_pasture_scaledS_c <- functionalcover_pasture_scaledS[functionalcover_pasture_scaledS$Crested==T,]
-functionalcover_pasture_scaledS_n <- functionalcover_pasture_scaledS[functionalcover_pasture_scaledS$Crested==F,]
-
-pasturemodel_S_full_crested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledS_c,na.action="na.fail")
-dredge(pasturemodel_S_full_crested) # fire history, precip, tmean
-Screstedbestmodel <- lm(log(cover+0.01) ~ FireHistory + ppt + tmean,data=functionalcover_pasture_scaledS_c,na.action="na.fail")
-pasturemodel_S_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledS_n,na.action="na.fail")
-dredge(pasturemodel_S_full_nocrested) # just fire history
-Snocrestedbestmodel <- lm(log(cover+0.01) ~ FireHistory,data=functionalcover_pasture_scaledS_n,na.action="na.fail")
+# functionalcover_pasture_scaledS_c <- functionalcover_pasture_scaledS[functionalcover_pasture_scaledS$Crested==T,]
+# functionalcover_pasture_scaledS_n <- functionalcover_pasture_scaledS[functionalcover_pasture_scaledS$Crested==F,]
+# 
+# pasturemodel_S_full_crested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledS_c,na.action="na.fail")
+# dredge(pasturemodel_S_full_crested) # fire history, precip, tmean
+# Screstedbestmodel <- lm(log(cover+0.01) ~ FireHistory + ppt + tmean,data=functionalcover_pasture_scaledS_c,na.action="na.fail")
+# pasturemodel_S_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledS_n,na.action="na.fail")
+# dredge(pasturemodel_S_full_nocrested) # just fire history
+# Snocrestedbestmodel <- lm(log(cover+0.01) ~ FireHistory,data=functionalcover_pasture_scaledS_n,na.action="na.fail")
 
 
 
@@ -604,23 +604,21 @@ functional_localhet <- functionalcover_plus[,c("PlotID","FuncGroup","cover","Pas
          sanddev = Sand-mean(Sand),
          logcoverdev = logcover-mean(logcover),
          topodistindex = sqrt(topodist),
-         logslope = log(Slope))
+         logslope = log(Slope)) %>%
+  filter(Crested==F)
 
 # Predict potential log cover from pasture-level linear models
-PGpredict <- cbind(functionalcover_pasture_scaledPG_c$Pasture,predict(PGcrestedbestmodel1)) %>%
-  rbind(cbind(functionalcover_pasture_scaledPG_n$Pasture,predict(PGnocrestedbestmodel))) %>%
+PGpredict <- cbind(functionalcover_pasture_scaledPG_n$Pasture,predict(PGnocrestedbestmodel)) %>%
   data.frame %>%
   rename(Pasture = X1, potential = X2) %>%
   mutate(potential=as.numeric(as.character(potential)),FuncGroup = "PG")
 
-AGpredict <- cbind(functionalcover_pasture_scaledAG_c$Pasture,predict(AGcrestedbestmodel)) %>%
-  rbind(cbind(functionalcover_pasture_scaledAG_n$Pasture,predict(AGnocrestedbestmodel))) %>%
+AGpredict <- cbind(functionalcover_pasture_scaledAG_n$Pasture,predict(AGnocrestedbestmodel)) %>%
   data.frame %>%
   rename(Pasture = X1, potential = X2) %>%
   mutate(potential=as.numeric(as.character(potential)),FuncGroup = "AG")  
 
-Spredict <- cbind(functionalcover_pasture_scaledS_c$Pasture,predict(Screstedbestmodel)) %>%
-  rbind(cbind(functionalcover_pasture_scaledS_n$Pasture,predict(Snocrestedbestmodel))) %>%
+Spredict <- cbind(functionalcover_pasture_scaledS_n$Pasture,predict(Snocrestedbestmodel)) %>%
   data.frame %>%
   rename(Pasture = X1, potential = X2) %>%
   mutate(potential=as.numeric(as.character(potential)),FuncGroup = "S")                       
@@ -742,16 +740,16 @@ S_localhet_scaled <- S_localhet %>%
 # summary(lm(logcoverdev ~ potential*Slope + hli + topodist + logcattledev,data=S_localhet_scaled,na.action="na.fail"))
 
 # crested split
-AG_localhet_scaled_c <- AG_localhet_scaled[AG_localhet_scaled$Crested==T,]
-AG_localhet_scaled_n <- AG_localhet_scaled[AG_localhet_scaled$Crested==F,]
-PG_localhet_scaled_c <- PG_localhet_scaled[PG_localhet_scaled$Crested==T,]
-PG_localhet_scaled_n <- PG_localhet_scaled[PG_localhet_scaled$Crested==F,]
-S_localhet_scaled_c <- S_localhet_scaled[S_localhet_scaled$Crested==T,]
-S_localhet_scaled_n <- S_localhet_scaled[S_localhet_scaled$Crested==F,]
+#AG_localhet_scaled_c <- AG_localhet_scaled[AG_localhet_scaled$Crested==T,]
+AG_localhet_scaled_n <- AG_localhet_scaled[AG_localhet_scaled$Crested==F&!is.na(AG_localhet_scaled_n$potential),]
+#PG_localhet_scaled_c <- PG_localhet_scaled[PG_localhet_scaled$Crested==T,]
+PG_localhet_scaled_n <- PG_localhet_scaled[PG_localhet_scaled$Crested==F&!is.na(PG_localhet_scaled_n$potential),]
+#S_localhet_scaled_c <- S_localhet_scaled[S_localhet_scaled$Crested==T,]
+S_localhet_scaled_n <- S_localhet_scaled[S_localhet_scaled$Crested==F&!is.na(S_localhet_scaled_n$potential),]
 
 
-AG_localhet_fullmodel_c <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=AG_localhet_scaled_c,na.action="na.fail")
-dredge(AG_localhet_fullmodel_c) 
+#AG_localhet_fullmodel_c <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=AG_localhet_scaled_c,na.action="na.fail")
+#dredge(AG_localhet_fullmodel_c) 
 # topodist: just hli
 # tdi: just hli
 # waterdist: just hli
@@ -762,8 +760,8 @@ dredge(AG_localhet_fullmodel_n)
 # waterdist: just hli
 AG_localhet_bestmodel_n <- lm(logcoverdev ~ hli,data=AG_localhet_scaled_n,na.action="na.fail")
 
-PG_localhet_fullmodel_c <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=PG_localhet_scaled_c,na.action="na.fail")
-dredge(PG_localhet_fullmodel_c) 
+#PG_localhet_fullmodel_c <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=PG_localhet_scaled_c,na.action="na.fail")
+#dredge(PG_localhet_fullmodel_c) 
 # topodist: null model
 # topodistindex: null model
 # waterdist: waterdist or hli
@@ -812,7 +810,7 @@ functionalcover_shrubcats_pasture_plus <- functionalcover_shrubcats_pasture %>%
 functionalcover_shrubcats_pasture_plus <- functionalcover_shrubcats_pasture_plus %>%
   mutate(logtotaldung = log(totaldung+1),
          logcattledung = log(CattleDung+1))
-functionalcover_shrubcats_scaled <- functionalcover_shrubcats_pasture_plus %>%
+functionalcover_shrubcats_scaled <- filter(functionalcover_shrubcats_pasture_plus,Crested==F) %>%
   mutate(ppt = scale(ppt,center=T,scale=T),
          logcattledung=scale(logcattledung,center=T,scale=T),
          tmean = scale(tmean,center=T,scale=T),
@@ -900,6 +898,7 @@ ggplot(data = subset(functionalcover_shrubcats_pasture_plus,Crested==F),aes(x=lo
 ### Local heterogeneity for shrub sub-groups
 
 functional_localhet_shrubcats <- functionalcover_shrubcats_plus[,c("PlotID","cover","Pasture","Slope","Sand","hli","topodist","CattleDung","Crested","FireHistory","WaterDist","Resprout")] %>%
+  filter(Crested==F) %>%
   mutate(logcover = log(cover+0.01),
          logcattledung = log(CattleDung+1)) %>%
   group_by(Pasture,Resprout) %>%

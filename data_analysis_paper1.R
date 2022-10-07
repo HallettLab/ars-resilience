@@ -445,4 +445,17 @@ max(functionalcover_shrubcats_plus$cover[functionalcover_shrubcats_plus$Resprout
 min(functionalcover_shrubcats_plus$cover[functionalcover_shrubcats_plus$Resprout==0&functionalcover_shrubcats_plus$Crested==F])
 max(functionalcover_shrubcats_plus$cover[functionalcover_shrubcats_plus$Resprout==0&functionalcover_shrubcats_plus$Crested==F])
 
-# 
+# Exponentiated coefficients and SD variables (effect size estimates)
+coef(AGnocrestedbestmodel)
+(exp(coef(AGnocrestedbestmodel))-1)*100
+coef(PGnocrestedbestmodel)
+(exp(coef(PGnocrestedbestmodel))-1)*100
+coef(Srenocrestedbestmodel)
+(exp(coef(Srenocrestedbestmodel))-1)*100
+coef(Snonocrestedbestmodel)
+(exp(coef(Snonocrestedbestmodel))-1)*100
+sd(functionalcover_pasture_plus[functionalcover_pasture_plus$Crested==F,]$tmean)
+sd(functionalcover_pasture_plus[functionalcover_pasture_plus$Crested==F,]$elev_ned)
+sd(functionalcover_pasture_plus[functionalcover_pasture_plus$Crested==F,]$logcattledung)
+sd(functionalcover_pasture_plus[functionalcover_pasture_plus$Crested==F,]$ppt)
+sd(functionalcover_pasture_plus[functionalcover_pasture_plus$Crested==F,]$Sand)

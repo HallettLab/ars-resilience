@@ -216,5 +216,26 @@ distplot
 dev.off()
 
 # Stats for text
-summary(lm(log(dung_avg+1) ~ aum_peracre_5yrmean, data=aum_avg))
+#summary(lm(log(dung_avg+1) ~ aum_peracre_5yrmean, data=aum_avg))
+dungmodel <- lm(aum_peracre_5yrmean ~ log(dung_avg+1), data=aum_avg)
+summary(dungmodel)
 summary(lm(log(meancount+1) ~ WaterDist, data=dungsum[dungsum$Species=="cattle",]))
+
+new <- data.frame(dung_avg = c(exp(1.5)-1,exp(1.99)-1))
+ends <- predict(dungmodel,newdata=new)
+
+ggplot(data=aum_avg,aes(x=log(dung_avg+1),y=aum_peracre_5yrmean)) +
+  geom_rect(aes(xmin=1.5,xmax=1.99,ymin=0,ymax=ends[2]),fill="lightgray") +
+  geom_rect(aes(xmin=0,xmax=1.99,ymin=ends[1],ymax=ends[2]),fill="lightgray") +
+  geom_point() +
+  labs(y="5 year mean AUM/acre", x="Log-transformed mean cattle dung") +
+  geom_smooth(method="lm",se=F) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  coord_cartesian(xlim=c(0.2,2.6),ylim=c(0.01,0.22)) +
+  annotate("segment", x = 1.5, xend = 1.99, y = 0.02, yend = 0.02,
+           arrow = arrow(ends = "both", angle = 90, length = unit(.2,"cm"))) +
+  annotate("segment", x = 0.5, xend = 0.5, y = ends[1], yend = ends[2],
+           arrow = arrow(ends = "both", angle = 90, length = unit(.2,"cm")))
+
+

@@ -154,48 +154,48 @@ shrubmap_nc <- ggmap(myMap) +
   coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE) +
   #scale_size_continuous(breaks=c(0.1,0.2,0.3),name="Shrub cover") +
   theme(legend.direction = "horizontal") +
-  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top")) +
+  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top",barwidth=8)) +
   labs(x="Longitude",y="Latitude")
 shrubmap_nc
 
 pgmap_nc <- ggmap(myMap) +
   geom_point(data=pasturepts_PG[pasturepts_PG$Crested==F,],aes(x=Longitude,y=Latitude,fill=cover,size=cover),color="black",shape=21) +
-  scale_fill_gradientn(colours=c('#ffffcc','#d9f0a3','#addd8e','#78c679','#41ab5d','#238443','#005a32'),breaks=c(0.2,0.4,0.6),name=element_blank()) +
+  scale_fill_gradientn(colours=c('#ffffcc','#d9f0a3','#addd8e','#78c679','#41ab5d','#238443','#005a32'),breaks=c(0,0.33,0.66),name=element_blank(),limits=c(0,0.66)) +
   theme_bw() +
   coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE) +
   theme(legend.direction = "horizontal") +
-  scale_size_continuous(breaks=c(0.2,0.4,0.6),name="Perennial grass cover") +
-  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top")) +
+  scale_size_continuous(breaks=c(0,0.33,0.66),name="Perennial grass cover",limits=c(0,0.66)) +
+  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top",barwidth=8)) +
   labs(x="Longitude",y="Latitude")
 
 agmap_nc <- ggmap(myMap) +
   geom_point(data=pasturepts_AG[pasturepts_AG$Crested==F,],aes(x=Longitude,y=Latitude,fill=cover,size=cover),color="black",shape=21) +
-  scale_fill_gradientn(colours=c('#ffffb2','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#b10026'),breaks=c(0.1,0.3,0.5),name=element_blank()) +
+  scale_fill_gradientn(colours=c('#ffffb2','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#b10026'),breaks=c(0,0.3,0.6),name=element_blank(),limits=c(0,0.6)) +
   theme_bw() +
   coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE) +
   theme(legend.direction = "horizontal") +
-  scale_size_continuous(breaks=c(0.1,0.3,0.5),name="Annual grass cover") +
-  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top")) +
+  scale_size_continuous(breaks=c(0,0.3,0.6),name="Annual grass cover",limits=c(0,0.6)) +
+  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top",barwidth=8)) +
   labs(x="Longitude",y="Latitude")
 
 shrubmap_re_nc <- ggmap(myMap) +
   geom_point(data=subset(pasturepts_shrubcats,Crested==F&Resprout==1),aes(x=Longitude,y=Latitude,fill=cover,size=cover),color="black",shape=21) +
-  scale_fill_gradientn(colours=c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177'),breaks=c(0,0.05,0.1),name=element_blank()) +
+  scale_fill_gradientn(colours=c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177'),breaks=c(0,0.075,0.15),name=element_blank(),limits=c(0,0.15)) +
   theme_bw() +
   coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE) +
-  scale_size_continuous(breaks=c(0,0.05,0.1),name="Resprouting shrub cover") +
+  scale_size_continuous(breaks=c(0,0.075,0.15),name="Resprouting shrub cover",limits=c(0,0.15)) +
   theme(legend.direction = "horizontal") +
-  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top")) +
+  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top",barwidth=8)) +
   labs(x="Longitude",y="Latitude")
 
 shrubmap_no_nc <- ggmap(myMap) +
   geom_point(data=subset(pasturepts_shrubcats,Crested==F&Resprout==0),aes(x=Longitude,y=Latitude,fill=cover,size=cover),color="black",shape=21) +
-  scale_fill_gradientn(colours=c('#f1eef6','#d0d1e6','#a6bddb','#74a9cf','#3690c0','#0570b0','#034e7b'),breaks=c(0,0.1,0.2,0.3),name=element_blank()) +
+  scale_fill_gradientn(colours=c('#f1eef6','#d0d1e6','#a6bddb','#74a9cf','#3690c0','#0570b0','#034e7b'),breaks=c(0,0.18,0.36),name=element_blank(),limits=c(0,0.36)) +
   theme_bw() +
   coord_sf(xlim = c(-120, -114), ylim = c(41.5, 44), expand = FALSE) +
-  scale_size_continuous(breaks=c(0,0.1,0.2,0.3),name="Non-resprouting shrub cover") +
+  scale_size_continuous(breaks=c(0,0.18,0.36),name="Non-resprouting shrub cover",limits=c(0,0.36)) +
   theme(legend.direction = "horizontal") +
-  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top")) +
+  guides(size = guide_legend(order=1,title.position="top"),fill = guide_colorbar(order=2,title.position="top",barwidth=8)) +
   labs(x="Longitude",y="Latitude")
 
 

@@ -7,11 +7,17 @@ logtranslabels <- function(x,...) {
   as.character(x-0.01)
 }
 
-# color palettes
-agcolors <- c('#ffffb2','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#b10026')
-pgcolors <- c('#ffffcc','#d9f0a3','#addd8e','#78c679','#41ab5d','#238443','#005a32')
-shrubcolors <- c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177')
-shrubcolors_non <- c('#f1eef6','#d0d1e6','#a6bddb','#74a9cf','#3690c0','#0570b0','#034e7b')
+# # color palettes
+# agcolors <- c('#ffffb2','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#b10026')
+# pgcolors <- c('#ffffcc','#d9f0a3','#addd8e','#78c679','#41ab5d','#238443','#005a32')
+# shrubcolors <- c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177')
+# shrubcolors_non <- c('#f1eef6','#d0d1e6','#a6bddb','#74a9cf','#3690c0','#0570b0','#034e7b')
+
+# new color palettes from carto color
+agcolors <- c("#ecda9a","#efc47e","#f3ad6a","#f7945d","#f97b57","#f66356","#ee4d5a")
+pgcolors <- c("#c4e6c3","#96d2a4","#6dbc90","#4da284","#36877a","#266b6e","#1d4f60")
+shrubcolors <- c('#f3e0f7','#e4c7f1','#d1afe8','#b998dd','#9f82ce','#826dba','#63589f')
+shrubcolors_non <- c('#d1eeea','#a8dbd9','#85c4c9','#68abb8','#4f90a6','#3b738f','#2a5674')
 
 # ### Plots - pasture-level variables ----
 # 
@@ -841,6 +847,13 @@ SNnc6 <- ggplot(data = subset(functionalcover_shrubcats_pasture_plus,Resprout==0
   scale_fill_gradientn(colours=shrubcolors_non,limits=snlimits) +
   scale_shape_manual(values=c(21,24))
 
+plot_grid(AGnc1,PGnc1,SRnc1,SNnc1,nrow=1)
+plot_grid(AGnc2,PGnc2,SRnc2,SNnc2,nrow=1)
+plot_grid(AGnc3,PGnc3,SRnc3,SNnc3,nrow=1)
+plot_grid(AGnc4,PGnc4,SRnc4,SNnc4,nrow=1)
+plot_grid(AGnc5,PGnc5,SRnc5,SNnc5,nrow=1)
+plot_grid(AGnc6,PGnc6,SRnc6,SNnc6,nrow=1)
+
 
 regionalplots_nocrested <- plot_grid(AGnc1,PGnc1,SRnc1,SNnc1,
                                      AGnc2,PGnc2,SRnc2,SNnc2,
@@ -908,25 +921,25 @@ tfireplots <- plot_grid(AG_tfire,PG_tfire,SR_tfire,SN_tfire,
 #### Save plots to PDF, finish annotating in Inkscape ----
 setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/Plots/")
 
-pdf(file="agplots_local.pdf",width=4,height=6)
-agplots_local
-dev.off()
-pdf(file="pgplots_local.pdf",width=4,height=6)
-pgplots_local
-dev.off()
-pdf(file="shrubplots_local.pdf",width=4,height=6)
-shrubplots_local
-dev.off()
-
-pdf(file="agplots_regional.pdf",width=9,height=5)
-agplots_regional
-dev.off()
-pdf(file="pgplots_regional.pdf",width=9,height=5)
-pgplots_regional
-dev.off()
-pdf(file="shrubplots_regional.pdf",width=9,height=5)
-shrubplots_regional
-dev.off()
+# pdf(file="agplots_local.pdf",width=4,height=6)
+# agplots_local
+# dev.off()
+# pdf(file="pgplots_local.pdf",width=4,height=6)
+# pgplots_local
+# dev.off()
+# pdf(file="shrubplots_local.pdf",width=4,height=6)
+# shrubplots_local
+# dev.off()
+# 
+# pdf(file="agplots_regional.pdf",width=9,height=5)
+# agplots_regional
+# dev.off()
+# pdf(file="pgplots_regional.pdf",width=9,height=5)
+# pgplots_regional
+# dev.off()
+# pdf(file="shrubplots_regional.pdf",width=9,height=5)
+# shrubplots_regional
+# dev.off()
 
 pdf(file="regionalplots_nocrested.pdf",width=7,height=10)
 regionalplots_nocrested

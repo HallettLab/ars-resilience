@@ -207,7 +207,7 @@ distplot <- ggplot(data=dungsum[dungsum$Species=="cattle",],aes(x = WaterDist, y
   theme_classic() +
   labs(x="Distance from water (m)", y="Dung count per plot (log axis)")
 
-pdf(file="/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/Plots/aumplot.pdf",width=4,height=4)
+pdf(file="/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/Plots/aumplot2.pdf",width=4,height=4)
 aumplot
 dev.off()
 
@@ -221,10 +221,11 @@ dungmodel <- lm(aum_peracre_5yrmean ~ log(dung_avg+1), data=aum_avg)
 summary(dungmodel)
 summary(lm(log(meancount+1) ~ WaterDist, data=dungsum[dungsum$Species=="cattle",]))
 
-new <- data.frame(dung_avg = c(exp(1.5)-1,exp(1.99)-1))
+new <- data.frame(dung_avg = c(exp(1.49)-1,exp(1.98)-1))
 ends <- predict(dungmodel,newdata=new)
+mean(log(dungsum[dungsum$Species=="cattle",]$meancount+1))
 
-ggplot(data=aum_avg,aes(x=log(dung_avg+1),y=aum_peracre_5yrmean)) +
+aumplot2 <- ggplot(data=aum_avg,aes(x=log(dung_avg+1),y=aum_peracre_5yrmean)) +
   geom_rect(aes(xmin=1.5,xmax=1.99,ymin=0,ymax=ends[2]),fill="lightgray") +
   geom_rect(aes(xmin=0,xmax=1.99,ymin=ends[1],ymax=ends[2]),fill="lightgray") +
   geom_point() +
@@ -237,5 +238,9 @@ ggplot(data=aum_avg,aes(x=log(dung_avg+1),y=aum_peracre_5yrmean)) +
            arrow = arrow(ends = "both", angle = 90, length = unit(.2,"cm"))) +
   annotate("segment", x = 0.5, xend = 0.5, y = ends[1], yend = ends[2],
            arrow = arrow(ends = "both", angle = 90, length = unit(.2,"cm")))
+
+pdf(file="/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/Plots/aumplot2.pdf",width=4,height=4)
+aumplot2
+dev.off()
 
 

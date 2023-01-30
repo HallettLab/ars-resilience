@@ -65,7 +65,7 @@ shrubcolors_non <- c('#d1eeea','#a8dbd9','#85c4c9','#68abb8','#4f90a6','#3b738f'
 #   scale_fill_gradientn(colours=agcolors) +
 #   scale_shape_manual(values=c(21,24)) +
 #   geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F)) +
-#   geom_smooth(method="lm",se=F,color="#cccccc",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&logcattledung<mean(logcattledung))) +
+#   geom_smooth(method="lm",se=F,color="#b3b3b3",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&logcattledung<mean(logcattledung))) +
 #   geom_smooth(method="lm",se=F,color="black",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&logcattledung>mean(logcattledung)))
 # AGpasturep5 <- ggplot(data = functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",],aes(x=Sand,y=cover)) +
 #   scale_y_log10() +
@@ -89,7 +89,7 @@ shrubcolors_non <- c('#d1eeea','#a8dbd9','#85c4c9','#68abb8','#4f90a6','#3b738f'
 #   scale_fill_gradientn(colours=agcolors) +
 #   scale_shape_manual(values=c(21,24)) +
 #   geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F)) +
-#   geom_smooth(method="lm",se=F,color="#cccccc",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&tmean<mean(tmean))) +
+#   geom_smooth(method="lm",se=F,color="#b3b3b3",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&tmean<mean(tmean))) +
 #   geom_smooth(method="lm",se=F,color="black",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&tmean>mean(tmean)))
 # 
 # agplots_regional <- plot_grid(AGpasturep1,AGpasturep2,AGpasturep3,AGpasturep4,AGpasturep5,AGpasturep6,nrow=3)
@@ -432,7 +432,7 @@ PGp2_nc <- ggplot(data=subset(PG_localhet,Crested==F),aes(x=logcattledev,y=logco
   labs(y = element_blank(),x="Deviation from pasture average log cattle dung count") +
   geom_smooth(method="lm",se=F,color="#777777",data = subset(PG_localhet, Crested ==F)) +
   geom_smooth(method="lm",se=F,color="black",data = subset(PG_localhet, Crested ==F&potential>mean(potential))) +
-  geom_smooth(method="lm",se=F,color="#cccccc",data = subset(PG_localhet, Crested ==F&potential<mean(potential)))
+  geom_smooth(method="lm",se=F,color="#b3b3b3",data = subset(PG_localhet, Crested ==F&potential<mean(potential)))
 PGp3_nc <- ggplot(data=subset(PG_localhet,Crested==F),aes(x=hli,y=logcoverdev,fill=exp(potential)-0.01)) +
   geom_point(shape=21) +
   scale_fill_gradientn(colors=pgcolors) +
@@ -443,7 +443,7 @@ PGp3_nc <- ggplot(data=subset(PG_localhet,Crested==F),aes(x=hli,y=logcoverdev,fi
   labs(y = element_blank(),x="Heat load index") +
   geom_smooth(method="lm",se=F,color="#777777") +
   geom_smooth(method="lm",se=F,color="black",data = subset(PG_localhet, Crested ==F&potential>mean(potential))) +
-  geom_smooth(method="lm",se=F,color="#cccccc",data = subset(PG_localhet, Crested ==F&potential<mean(potential)))
+  geom_smooth(method="lm",se=F,color="#b3b3b3",data = subset(PG_localhet, Crested ==F&potential<mean(potential)))
 PGp4_nc <- ggplot(data=subset(PG_localhet,Crested==F),aes(x=Slope,y=logcoverdev,fill=exp(potential)-0.01)) +
   geom_point(shape=21) +
   scale_fill_gradientn(colors=pgcolors) +
@@ -515,7 +515,7 @@ SNp1_nc <- ggplot(data=subset(S_no_localhet,Crested==F),aes(x=sanddev,y=logcover
   labs(y = element_blank(),x="Deviation from pasture average soil sand content (%)") +
   geom_smooth(method="lm",se=F,color="#777777",data = subset(S_no_localhet, Crested ==F)) +
   geom_smooth(method="lm",se=F,color="black",data = subset(S_no_localhet, Crested ==F&potential>mean(potential))) +
-  geom_smooth(method="lm",se=F,color="#cccccc",data = subset(S_no_localhet, Crested ==F&potential<mean(potential)))
+  geom_smooth(method="lm",se=F,color="#b3b3b3",data = subset(S_no_localhet, Crested ==F&potential<mean(potential)))
 SNp2_nc <- ggplot(data=subset(S_no_localhet,Crested==F),aes(x=logcattledev,y=logcoverdev,fill=exp(potential)-0.01)) +
   geom_point(shape=21) +
   scale_fill_gradientn(colors=shrubcolors_non) +
@@ -552,7 +552,7 @@ SNp5_nc <- ggplot(data=subset(S_no_localhet,Crested==F),aes(x=WaterDist,y=logcov
   labs(y = element_blank(),x="Distance to water (m)") +
   geom_smooth(method="lm",se=F,color="#777777",data = subset(S_no_localhet, Crested ==F)) +
   geom_smooth(method="lm",se=F,color="black",data = subset(S_no_localhet, Crested ==F&potential>mean(potential))) +
-  geom_smooth(method="lm",se=F,color="#cccccc",data = subset(S_no_localhet, Crested ==F&potential<mean(potential)))
+  geom_smooth(method="lm",se=F,color="#b3b3b3",data = subset(S_no_localhet, Crested ==F&potential<mean(potential)))
 
 AGp1_nc <- AGp1_nc + theme(legend.position="none")
 AGp2_nc <- AGp2_nc + theme(legend.position="none")
@@ -736,7 +736,7 @@ AGnc4 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crest
   scale_fill_gradientn(colours=agcolors,limits=aglimits) +
   scale_shape_manual(values=c(21,24)) +
   geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F)) +
-  geom_smooth(method="lm",se=F,color="#cccccc",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&logcattledung<mean(logcattledung))) +
+  geom_smooth(method="lm",se=F,color="#b3b3b3",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&logcattledung<mean(logcattledung))) +
   geom_smooth(method="lm",se=F,color="black",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&logcattledung>mean(logcattledung)))
 PGnc4 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="PG"&Crested==F),aes(x=tmean,y=cover+0.01)) +
   scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
@@ -815,7 +815,7 @@ AGnc6 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crest
   scale_fill_gradientn(colours=agcolors,limits=aglimits) +
   scale_shape_manual(values=c(21,24)) +
   geom_smooth(method="lm",se=F,color="#777777",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F)) +
-  geom_smooth(method="lm",se=F,color="#cccccc",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&tmean<mean(tmean))) +
+  geom_smooth(method="lm",se=F,color="#b3b3b3",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&tmean<mean(tmean))) +
   geom_smooth(method="lm",se=F,color="black",data=subset(functionalcover_pasture_plus,FuncGroup=="AG"&Crested==F&tmean>mean(tmean)))
 PGnc6 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="PG"&Crested==F),aes(x=logcattledung,y=cover+0.01)) +
   scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +

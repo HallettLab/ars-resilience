@@ -339,4 +339,8 @@ ggmap(myMap) +
   annotation_north_arrow(which_north = "true",location="bl") +
   labs(x="Longitude",y="Latitude")
   
-  
+
+### AG species ----
+pasturepts_BRTE <- left_join(pasturepts,plantspp_pasture_scaledBRTE[c("Pasture","cover","Crested")],by="Pasture")
+
+

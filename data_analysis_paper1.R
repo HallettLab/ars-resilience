@@ -15,7 +15,8 @@ library(MASS)
 
 
 # Import data ----
-setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/FieldData_Cleaned")
+#setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/FieldData_Cleaned")
+setwd("V:/Projects/GreatBasinSurvey_Postdoc/FieldData_Cleaned/FieldData_Cleaned")
 plotdata <- read.csv("GreatBasin2021_PlotData_ClimateAnnotated.csv")
 bunchgrass <- read.csv("GreatBasin2021_BunchgrassQuads.csv")
 dung <- read.csv("GreatBasin2021_DungCounts.csv")
@@ -26,8 +27,8 @@ unknowns <- read.csv("GreatBasin2021_Unknowns.csv")
 soils <- read.csv("GreatBasin2021_SoilAnalysis.csv")
 soilkey <- read.csv("GreatBasin2021_SoilKey.csv")
 funckey <- read.csv("GreatBasin2021_SppFunctionalKey.csv")
-aum <- read.csv("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/AUMData_Raw/AUMData_Combined.csv")
-pastureshapes <- read.csv("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/FieldData_Raw/GreatBasin2021_PastureShapes.csv")
+aum <- read.csv("V:/Projects/GreatBasinSurvey_Postdoc/AUMData_Raw/AUMData_Raw/AUMData_Combined.csv")
+pastureshapes <- read.csv("V:/Projects/GreatBasinSurvey_Postdoc/FieldData_Raw/FieldData_Raw/GreatBasin2021_PastureShapes.csv")
 resprout <- read.csv("GreatBasin2021_ShrubResprout.csv")
 
 plotdata$PastureName <- recode(plotdata$PastureName, "SouthSteens" = "SouthSteens2","Canal Field" = "CanalField","SouthSteens "="SouthSteens2") # re-run cleaning script to update saved files with this
@@ -230,7 +231,7 @@ functional_localhet <- functionalcover_plus[,c("PlotID","FuncGroup","cover","Pas
          sanddev = Sand-mean(Sand),
          logcoverdev = logcover-mean(logcover),
          topodistindex = sqrt(topodist),
-         logslope = log(Slope)) %>%
+         logslope = log(Slope+0.01)) %>%
   filter(Crested==F)
 
 # Predict potential log cover from pasture-level linear models
@@ -265,7 +266,8 @@ AG_localhet_scaled <- AG_localhet %>%
          sanddev = scale(sanddev,center=T,scale=T),
          potential = scale(potential,center=T,scale=T),
          WaterDist = scale(WaterDist,center=T,scale=T),
-         topodistindex = scale(topodistindex,center=T,scale=T))
+         topodistindex = scale(topodistindex,center=T,scale=T),
+         logslope = scale(logslope, center=T, scale=T))
 
 PG_localhet_scaled <- PG_localhet %>%
   ungroup() %>%
@@ -277,7 +279,8 @@ PG_localhet_scaled <- PG_localhet %>%
          sanddev = scale(sanddev,center=T,scale=T),
          potential = scale(potential,center=T,scale=T),
          WaterDist = scale(WaterDist,center=T,scale=T),
-         topodistindex = scale(topodistindex,center=T,scale=T))
+         topodistindex = scale(topodistindex,center=T,scale=T),
+         logslope = scale(logslope, center=T, scale=T))
 
 
 AG_localhet_scaled_n <- AG_localhet_scaled[AG_localhet_scaled$Crested==F&!is.na(AG_localhet_scaled$potential),]
@@ -285,12 +288,54 @@ PG_localhet_scaled_n <- PG_localhet_scaled[PG_localhet_scaled$Crested==F&!is.na(
 
 AG_localhet_fullmodel_n <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=AG_localhet_scaled_n,na.action="na.fail")
 dredge(AG_localhet_fullmodel_n) 
-AG_localhet_bestmodel_n <- lm(logcoverdev ~ hli,data=AG_localhet_scaled_n,na.action="na.fail")
+AG_localhet_bestmodel_n <- lm(logcoverdev ~ hli + WaterDist,data=AG_localhet_scaled_n,na.action="na.fail")
 
 PG_localhet_fullmodel_n <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=PG_localhet_scaled_n,na.action="na.fail")
 dredge(PG_localhet_fullmodel_n) 
-PG_localhet_bestmodel_n <- lm(logcoverdev ~ potential*hli + WaterDist + logcattledev*potential,data=PG_localhet_scaled_n,na.action="na.fail")
+PG_localhet_bestmodel_n <- lm(logcoverdev ~ potential*hli + WaterDist+ sanddev + logcattledev*potential,data=PG_localhet_scaled_n,na.action="na.fail")
 
+# Commented-out section below: alternative method tried for paper revision, decided not to use
+# # updated approach: calculate deviation vs. pasture-level linear model predictions?
+# # OR vs. pasture-level predictions from mixed-model approach?
+# 
+# # with mixed model predictions
+# functional_localhet_mm <- functionalcover_plus[,c("PlotID","FuncGroup","cover","Pasture","Slope","Sand","hli","topodist","logcattledung","Crested","FireHistory","WaterDist","ppt","tmean","elev_ned")] %>%
+#   mutate(logcover = log(cover+0.01)) %>%
+#   group_by(Pasture,FuncGroup) %>%
+#   mutate(logcattledev = logcattledung-mean(logcattledung),
+#          sanddev = Sand-mean(Sand),
+#          logcoverdev = logcover-mean(logcover),
+#          topodistindex = sqrt(topodist),
+#          logslope = log(Slope)) %>%
+#   filter(Crested==F)
+# 
+# # with linear model predictions
+# AG_localhet_scaled_n <- AG_localhet_scaled_n %>%
+#   mutate(logcoverdev2 = logcover - potential,
+#          logcoverdev3 = logcover/potential)
+# plot(logcoverdev2 ~ logcoverdev, data = AG_localhet_scaled_n)
+# plot(logcoverdev2 ~ potential, data = AG_localhet_scaled_n) # negative correlation - could be driven by model fit
+# plot(logcover ~ potential, data = AG_localhet_scaled_n) 
+# plot(logcoverdev ~ potential, data = AG_localhet_scaled_n)
+# #plot(logcoverdev3 ~ potential, data = AG_localhet_scaled_n) # doesn't make sense
+# 
+# AG_localhet_fullmodel_2 <- lm(logcoverdev2 ~ potential*(logslope + hli + WaterDist + logcattledev + sanddev),data=AG_localhet_scaled_n,na.action="na.fail")
+# dredge(AG_localhet_fullmodel_2)
+# dredge(AG_localhet_fullmodel_2,rank="BIC")
+# AG_localhet_bestmodel_2 <- lm(logcoverdev2 ~ hli + potential,data=AG_localhet_scaled_n,na.action="na.fail")
+# plot(logcoverdev2 ~ hli, data = AG_localhet_scaled_n)
+# summary(lm(logcoverdev2 ~ hli,data=AG_localhet_scaled_n,na.action="na.fail"))
+# 
+# PG_localhet_scaled_n <- PG_localhet_scaled_n %>%
+#   mutate(logcoverdev2 = logcover - potential)
+# plot(logcoverdev2 ~ logcoverdev, data = PG_localhet_scaled_n)
+# plot(logcoverdev2 ~ potential, data = PG_localhet_scaled_n)
+# plot(logcover ~ potential, data = PG_localhet_scaled_n) 
+# 
+# PG_localhet_fullmodel_2 <- lm(logcoverdev2 ~ potential*(logslope + hli + WaterDist + logcattledev + sanddev),data=PG_localhet_scaled_n,na.action="na.fail")
+# dredge(PG_localhet_fullmodel_2)
+# dredge(PG_localhet_fullmodel_2,rank="BIC")
+# plot(logcoverdev2 ~ hli, data = PG_localhet_scaled_n)
 
 ### Shrub analyses split by resprouting category ----
 
@@ -355,17 +400,17 @@ functional_localhet_shrubcats <- functionalcover_shrubcats_plus[,c("PlotID","cov
          topodistindex = sqrt(topodist),
          logslope = log(Slope))
 
-# Predict potential log cover from pasture-level linear models
-
-Spredict_shrubcats_re <- cbind(functionalcover_pasture_scaledS_re_n$Pasture,predict(Srenocrestedbestmodel)) %>%
-  data.frame %>%
-  rename(Pasture = X1, potential = X2) %>%
-  mutate(potential=as.numeric(as.character(potential)),Resprout = 1)
-
-Spredict_shrubcats_no <- cbind(functionalcover_pasture_scaledS_no_n$Pasture,predict(Snonocrestedbestmodel)) %>%
-  data.frame %>%
-  rename(Pasture = X1, potential = X2) %>%
-  mutate(potential=as.numeric(as.character(potential)),Resprout = 0)
+# # Predict potential log cover from pasture-level linear models
+# 
+# Spredict_shrubcats_re <- cbind(functionalcover_pasture_scaledS_re_n$Pasture,predict(Srenocrestedbestmodel)) %>%
+#   data.frame %>%
+#   rename(Pasture = X1, potential = X2) %>%
+#   mutate(potential=as.numeric(as.character(potential)),Resprout = 1)
+# 
+# Spredict_shrubcats_no <- cbind(functionalcover_pasture_scaledS_no_n$Pasture,predict(Snonocrestedbestmodel)) %>%
+#   data.frame %>%
+#   rename(Pasture = X1, potential = X2) %>%
+#   mutate(potential=as.numeric(as.character(potential)),Resprout = 0)
 
 
 S_re_localhet <- functional_localhet_shrubcats %>%
@@ -406,7 +451,7 @@ S_no_localhet_scaled <- S_no_localhet %>%
 
 S_re_localhet_fullmodel <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=S_re_localhet_scaled,na.action="na.fail")
 dredge(S_re_localhet_fullmodel) # log cattle dung and slope
-summary(lm(logcoverdev ~ logcattledev + Slope,data=S_re_localhet_scaled,na.action="na.fail"))
+summary(lm(logcoverdev ~ logcattledev + Slope + hli + sanddev,data=S_re_localhet_scaled,na.action="na.fail"))
 
 S_no_localhet_fullmodel <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=S_no_localhet_scaled,na.action="na.fail")
 dredge(S_no_localhet_fullmodel) # hli, log cattle dung, sand*potential, waterdist*potential 
@@ -459,3 +504,78 @@ sd(functionalcover_pasture_plus[functionalcover_pasture_plus$Crested==F,]$elev_n
 sd(functionalcover_pasture_plus[functionalcover_pasture_plus$Crested==F,]$logcattledung)
 sd(functionalcover_pasture_plus[functionalcover_pasture_plus$Crested==F,]$ppt)
 sd(functionalcover_pasture_plus[functionalcover_pasture_plus$Crested==F,]$Sand)
+
+
+### Adding FORBS ----
+functionalcover_pasture_scaledF <- functionalcover_pasture_scaled[functionalcover_pasture_scaled$FuncGroup == "F",]
+functionalcover_pasture_scaledF_n <- functionalcover_pasture_scaledF[functionalcover_pasture_scaledF$Crested==F,]
+
+pasturemodel_F_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledF_n,na.action="na.fail")
+dredge(pasturemodel_F_full_nocrested) # fire, sand
+Fnocrestedbestmodel <- lm(lm(log(cover+0.01) ~ FireHistory + Sand,data=functionalcover_pasture_scaledF_n,na.action="na.fail"))
+
+Fpredict <- cbind(functionalcover_pasture_scaledF_n$Pasture,predict(Fnocrestedbestmodel)) %>%
+  data.frame %>%
+  rename(Pasture = X1, potential = X2) %>%
+  mutate(potential=as.numeric(as.character(potential)),FuncGroup = "F")  
+
+F_localhet <- functional_localhet %>%
+  ungroup() %>%
+  filter(FuncGroup=="F") %>%
+  left_join(Fpredict)
+
+F_localhet_scaled <- F_localhet %>%
+  ungroup() %>%
+  group_by(FuncGroup) %>%
+  mutate(Slope = scale(Slope,center=T,scale=T),
+         hli=scale(hli,center=T,scale=T),
+         topodist = scale(topodist,center=T,scale=T),
+         logcattledev = scale(logcattledev,center=T,scale=T),
+         sanddev = scale(sanddev,center=T,scale=T),
+         potential = scale(potential,center=T,scale=T),
+         WaterDist = scale(WaterDist,center=T,scale=T),
+         topodistindex = scale(topodistindex,center=T,scale=T),
+         logslope = scale(logslope, center=T, scale=T))
+
+F_localhet_scaled_n <- F_localhet_scaled[F_localhet_scaled$Crested==F&!is.na(F_localhet_scaled$potential),]
+
+F_localhet_fullmodel_n <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=F_localhet_scaled_n,na.action="na.fail")
+dredge(F_localhet_fullmodel_n) 
+F_localhet_bestmodel <- lm(logcoverdev ~ logcattledev,data=F_localhet_scaled_n,na.action="na.fail")
+
+
+## Species-specific - for ESA talk
+plantspp_pasture_plus <- plantspp_pasture_plus %>%
+  mutate(logcattledung = log(CattleDung + 1)) 
+plantspp_pasture_scaled <- plantspp_pasture_plus[plantspp_pasture_plus$Crested==F,] %>%
+  ungroup() %>%
+  group_by(sppcode) %>%
+  mutate(ppt = scale(ppt,center=T,scale=T),
+         logcattledung=scale(logcattledung,center=T,scale=T),
+         tmean = scale(tmean,center=T,scale=T),
+         elev_ned = scale(elev_ned,center=T,scale=T),
+         Sand = scale(Sand,center=T,scale=T),
+         FireHistory = factor(FireHistory,levels=c("Unburned","Burned")))
+plantspp_pasture_scaledBRTE <- plantspp_pasture_scaled[plantspp_pasture_scaled$sppcode == "BRTE"&plantspp_pasture_scaled$Crested==F,]
+plantspp_pasture_scaledTACA <- plantspp_pasture_scaled[plantspp_pasture_scaled$sppcode == "TACA8"&plantspp_pasture_scaled$Crested==F,]
+plantspp_pasture_scaledVEDU <- plantspp_pasture_scaled[plantspp_pasture_scaled$sppcode == "VEDU"&plantspp_pasture_scaled$Crested==F,]
+plantspp_pasture_scaledBRJA <- plantspp_pasture_scaled[plantspp_pasture_scaled$sppcode == "BRJA"&plantspp_pasture_scaled$Crested==F,]
+
+pasturemodel_BRTE_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=plantspp_pasture_scaledBRTE,na.action="na.fail")
+dredge(pasturemodel_BRTE_full_nocrested) # sand, tmean
+pasturemodel_BRTE_best <- lm(log(cover+0.01) ~ tmean + Sand,data=plantspp_pasture_scaledBRTE,na.action="na.fail")
+
+pasturemodel_TACA_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=plantspp_pasture_scaledTACA,na.action="na.fail")
+dredge(pasturemodel_TACA_full_nocrested) # elev, ppt, sand
+pasturemodel_TACA_best <- lm(log(cover+0.01) ~ elev_ned + ppt + Sand,data=plantspp_pasture_scaledTACA,na.action="na.fail")
+
+pasturemodel_BRJA_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=plantspp_pasture_scaledBRJA,na.action="na.fail")
+dredge(pasturemodel_BRJA_full_nocrested) # elev, fire, dung, ppt, sand, tmean, fire*dung
+pasturemodel_BRJA_best <- lm(log(cover+0.01) ~ logcattledung*FireHistory + ppt + tmean + elev_ned + Sand,data=plantspp_pasture_scaledBRJA,na.action="na.fail")
+
+
+# Export data for Dryad archive
+write.csv(dplyr::select(functionalcover_plus,!c(Region,topodist,totalgap,meangap,maxgap,mediangap,totaldung,logtotaldung)),
+          "V:/Projects/GreatBasinSurvey_Postdoc/DryadData/functionalcover_plotdata.csv")
+write.csv(dplyr::select(functionalcover_shrubcats_plus,!c(Region,topodist,totalgap,meangap,maxgap,mediangap,totaldung)),
+          "V:/Projects/GreatBasinSurvey_Postdoc/DryadData/functionalcover_shrubcategories_plotdata.csv")

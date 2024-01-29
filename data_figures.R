@@ -421,7 +421,8 @@ PGp1_nc <- ggplot(data=subset(PG_localhet,Crested==F),aes(x=sanddev,y=logcoverde
   theme_bw() +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         strip.text=element_blank()) +
-  labs(y = element_blank(),x="Deviation from pasture average soil sand content (%)")
+  labs(y = element_blank(),x="Deviation from pasture average soil sand content (%)") +
+  geom_smooth(method="lm",se=F,color="#777777")
 PGp2_nc <- ggplot(data=subset(PG_localhet,Crested==F),aes(x=logcattledev,y=logcoverdev,fill=exp(potential)-0.01)) +
   geom_point(shape=21) +
   scale_fill_gradientn(colors=pgcolors) +
@@ -469,7 +470,8 @@ SRp1_nc <- ggplot(data=subset(S_re_localhet,Crested==F),aes(x=sanddev,y=logcover
   theme_bw() +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         strip.text=element_blank()) +
-  labs(y = element_blank(),x="Deviation from pasture average soil sand content (%)") 
+  labs(y = element_blank(),x="Deviation from pasture average soil sand content (%)")+
+  geom_smooth(method="lm",se=F,color="#777777",linetype="dashed") 
 SRp2_nc <- ggplot(data=subset(S_re_localhet,Crested==F),aes(x=logcattledev,y=logcoverdev,fill=exp(potential)-0.01)) +
   geom_point(shape=21) +
   scale_fill_gradientn(colors=shrubcolors) +
@@ -486,7 +488,8 @@ SRp3_nc <- ggplot(data=subset(S_re_localhet,Crested==F),aes(x=hli,y=logcoverdev,
   theme_bw() +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         strip.text=element_blank()) +
-  labs(y = element_blank(),x="Heat load index")
+  labs(y = element_blank(),x="Heat load index") +
+  geom_smooth(method="lm",se=F,color="#777777",linetype="dashed")
 SRp4_nc <- ggplot(data=subset(S_re_localhet,Crested==F),aes(x=Slope,y=logcoverdev,fill=exp(potential)-0.01)) +
   geom_point(shape=21) +
   scale_fill_gradientn(colors=shrubcolors) +
@@ -920,6 +923,7 @@ tfireplots <- plot_grid(AG_tfire,PG_tfire,SR_tfire,SN_tfire,
 
 #### Save plots to PDF, finish annotating in Inkscape ----
 setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/Plots/")
+setwd("V:/Projects/GreatBasinSurvey_Postdoc/Revision")
 
 # pdf(file="agplots_local.pdf",width=4,height=6)
 # agplots_local
@@ -952,3 +956,260 @@ dev.off()
 pdf(file="tfireplots.pdf",width=4,height=4)
 tfireplots
 dev.off()
+
+
+### Adding FORBS ----
+Fnc1 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="F"&Crested==F),aes(x=FireHistory,y=cover+0.01)) +
+  geom_boxplot() +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  facet_wrap(.~FuncGroup) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Fire History",y = element_blank()) +
+  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn() +
+  scale_shape_manual(values=c(21,24))
+Fnc2 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="F"&Crested==F),aes(x=elev_ned,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Elevation (m)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=Fcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24))
+
+Fnc3 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="F"&Crested==F),aes(x=ppt,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual precipitation (mm)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=agcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24))
+Fnc4 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="F"&Crested==F),aes(x=tmean,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual temperature (degrees C)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=agcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24)) 
+Fnc5 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="F"&Crested==F),aes(x=Sand,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Soil Sand Content (%)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=agcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777")
+  
+Fnc6 <- ggplot(data = subset(functionalcover_pasture_plus,FuncGroup=="F"&Crested==F),aes(x=logcattledung,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Log-transformed cattle dung count (log[dung per plot + 1])",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=agcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24)) 
+
+plot_grid(Fnc1,Fnc2,Fnc3,Fnc4,Fnc5,Fnc6,nrow=6)
+
+F_localhet <- filter(F_localhet,!is.na(potential))
+
+Fp1_nc <- ggplot(data=subset(F_localhet,Crested==F),aes(x=sanddev,y=logcoverdev,fill=exp(potential)-0.01)) +
+  geom_point(shape=21) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Deviation from pasture average soil sand content (%)")
+Fp2_nc <- ggplot(data=subset(F_localhet,Crested==F),aes(x=logcattledev,y=logcoverdev,fill=exp(potential)-0.01)) +
+  geom_point(shape=21) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Deviation from pasture average log cattle dung count")  +
+  geom_smooth(method="lm",se=F,color="#777777")
+Fp3_nc <- ggplot(data=subset(F_localhet,Crested==F),aes(x=hli,y=logcoverdev,fill=exp(potential)-0.01)) +
+  geom_point(shape=21) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Heat load index")
+Fp4_nc <- ggplot(data=subset(F_localhet,Crested==F),aes(x=Slope,y=logcoverdev,fill=exp(potential)-0.01)) +
+  geom_point(shape=21) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Slope (degrees)")
+Fp5_nc <- ggplot(data=subset(F_localhet,Crested==F),aes(x=WaterDist,y=logcoverdev,fill=exp(potential)-0.01)) +
+  geom_point(shape=21) +
+  facet_wrap(. ~ Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  labs(y = element_blank(),x="Distance to water (m)")
+
+plot_grid(Fp1_nc,Fp2_nc,Fp3_nc,Fp4_nc,Fp5_nc,nrow=5)
+
+### Adding AG species ----
+BRTE_fire <- ggplot(data = subset(plantspp_pasture_plus,sppcode=="BRTE"&Crested==F),aes(x=FireHistory,y=cover+0.01)) +
+  geom_boxplot() +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  #facet_wrap(.~FuncGroup) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Fire History",y = element_blank()) +
+  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=agcolors,limits=c(0,0.5)) +
+  scale_shape_manual(values=c(21,24))
+TACA_fire <- ggplot(data = subset(plantspp_pasture_plus,sppcode=="TACA8"&Crested==F),aes(x=FireHistory,y=cover+0.01)) +
+  geom_boxplot() +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  #facet_wrap(.~FuncGroup) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Fire History",y = element_blank()) +
+  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=agcolors,limits=c(0,0.5)) +
+  scale_shape_manual(values=c(21,24))
+BRJA_fire <- ggplot(data = subset(plantspp_pasture_plus,sppcode=="BRJA"&Crested==F),aes(x=FireHistory,y=cover+0.01)) +
+  geom_boxplot() +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  #facet_wrap(.~FuncGroup) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Fire History",y = element_blank()) +
+  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=agcolors,limits=c(0,0.5)) +
+  scale_shape_manual(values=c(21,24))
+
+plot_grid(BRTE_fire,TACA_fire,BRJA_fire,nrow=1)
+
+BRTE_sand <- ggplot(data = subset(plantspp_pasture_plus,sppcode=="BRTE"&Crested==F),aes(x=Sand,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Soil Sand Content (%)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=agcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",linetype="dotted")
+TACA_sand <- ggplot(data = subset(plantspp_pasture_plus,sppcode=="TACA8"&Crested==F),aes(x=Sand,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Soil Sand Content (%)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=agcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777",linetype="dotted")
+BRJA_sand <- ggplot(data = subset(plantspp_pasture_plus,sppcode=="BRJA"&Crested==F),aes(x=Sand,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Soil Sand Content (%)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=agcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777")
+
+BRTE_elev <- ggplot(data = subset(plantspp_pasture_plus,sppcode=="BRTE"&Crested==F),aes(x=elev_ned,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Elevation (m)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=Fcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24))
+TACA_elev <- ggplot(data = subset(plantspp_pasture_plus,sppcode=="TACA8"&Crested==F),aes(x=elev_ned,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Elevation (m)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=Fcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777")
+BRJA_elev <- ggplot(data = subset(plantspp_pasture_plus,sppcode=="BRJA"&Crested==F),aes(x=elev_ned,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  facet_wrap(.~Crested) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Elevation (m)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=Fcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777")
+
+BRTE_ppt <- ggplot(data = subset(plantspp_pasture_plus,sppcode=="BRTE"&Crested==F),aes(x=ppt,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual precipitation (mm)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=agcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24))
+TACA_ppt <- ggplot(data = subset(plantspp_pasture_plus,sppcode=="TACA8"&Crested==F),aes(x=ppt,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual precipitation (mm)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=agcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777")
+BRJA_ppt <- ggplot(data = subset(plantspp_pasture_plus,sppcode=="BRJA"&Crested==F),aes(x=ppt,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual precipitation (mm)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=agcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777")
+
+BRTE_tmean <- ggplot(data = subset(plantspp_pasture_plus,sppcode=="BRTE"&Crested==F),aes(x=tmean,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual temperature (degrees C)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=agcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24)) +
+  geom_smooth(method="lm",se=F,color="#777777")
+TACA_tmean <- ggplot(data = subset(plantspp_pasture_plus,sppcode=="TACA8"&Crested==F),aes(x=tmean,y=cover+0.01)) +
+  scale_y_log10(limits=c(0.005,0.66),labels=logtranslabels) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) + 
+  labs(x = "Mean annual temperature (degrees C)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  #scale_fill_gradientn(colours=agcolors,limits=aglimits) +
+  scale_shape_manual(values=c(21,24))

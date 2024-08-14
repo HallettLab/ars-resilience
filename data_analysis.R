@@ -1,0 +1,1034 @@
+# Data manipulation and analysis - June 2022
+# Collating predictor and response variables, and subsetting by fire and crested status
+# Ordination and linear modeling
+library(tidyverse)
+library(ggplot2)
+library(vegan)
+library(GGally)
+library(lme4)
+library(MuMIn)
+library(sjPlot)
+library(jtools)
+library(broom.mixed)
+library(cowplot)
+library(MASS)
+
+# Import data ----
+setwd("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/FieldData_Cleaned")
+plotdata <- read.csv("GreatBasin2021_PlotData_ClimateAnnotated.csv")
+bunchgrass <- read.csv("GreatBasin2021_BunchgrassQuads.csv")
+dung <- read.csv("GreatBasin2021_DungCounts.csv")
+gaps <- read.csv("GreatBasin2021_GapIntercept.csv")
+lpi <- read.csv("GreatBasin2021_LinePointIntercept.csv")
+pastures <- read.csv("GreatBasin2021_PastureSheets.csv")
+unknowns <- read.csv("GreatBasin2021_Unknowns.csv")
+soils <- read.csv("GreatBasin2021_SoilAnalysis.csv")
+soilkey <- read.csv("GreatBasin2021_SoilKey.csv")
+funckey <- read.csv("GreatBasin2021_SppFunctionalKey.csv")
+aum <- read.csv("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/AUMData_Raw/AUMData_Combined.csv")
+pastureshapes <- read.csv("/Users/maddy/Dropbox (Personal)/ResearchProjects/GreatBasinResilience/FieldData2021/DataAnalysis/FieldData_Raw/GreatBasin2021_PastureShapes.csv")
+resprout <- read.csv("GreatBasin2021_ShrubResprout.csv")
+
+plotdata$PastureName <- recode(plotdata$PastureName, "SouthSteens" = "SouthSteens2","Canal Field" = "CanalField","SouthSteens "="SouthSteens2") # re-run cleaning script to update saved files with this
+plotdata <- left_join(plotdata,dplyr::select(pastures,Pasture,Region,FireHistory),by=c("PastureName" = "Pasture"))
+
+# Gap intercept summary ----
+# summarize: total gap, median gap, mean gap, max gap
+gapsummary <- gaps %>%
+  group_by(PlotID) %>%
+  summarise(totalgap = sum(gapsize)/7500,
+            meangap = mean(gapsize),
+            maxgap = max(gapsize),
+            mediangap = median(gapsize))
+
+# Cattle dung and AUM summary ----
+dung <- dung %>%
+  mutate(Pasture = sapply(strsplit(dung$PlotID,split="_"),"[[",1),
+         WaterDist = as.numeric(sapply(strsplit(dung$PlotID,split="_"),"[[",2)),
+         Asp = sapply(strsplit(dung$PlotID,split="_"),"[[",3)
+  ) %>%
+  mutate(Count = replace_na(Count, 0))
+dung$Count <- as.numeric(as.character(dung$Count))
+dungsum <- dung %>%
+  group_by(PlotID,Species,Pasture,WaterDist,Asp) %>%
+  summarise(meancount = mean(Count)) %>%
+  ungroup()
+
+dungsum_all <- dungsum %>%
+  group_by(Pasture,PlotID) %>%
+  summarize(totaldung = sum(meancount),WaterDist=mean(WaterDist))
+
+aum_sum <- aum %>%
+  group_by(Pasture,Year) %>%
+  summarise(aum_total = sum(AUM_All),aum_public = sum(AUM_Pub)) %>%
+  mutate(aum_total = replace_na(aum_total,0), aum_public = replace_na(aum_public,0)) %>%
+  left_join(dplyr::select(pastureshapes,Pasture,GIS_ACRES)) %>%
+  mutate(aum_peracre = aum_total/GIS_ACRES)
+
+aum_avg <- aum_sum %>%
+  ungroup() %>%
+  group_by(Pasture) %>%
+  summarise(aum_5yrmean = mean(aum_total),
+            aum_5yrmax = max(aum_total),
+            aum_peracre_5yrmean = mean(aum_peracre),
+            aum_peracre_5yrmax = max(aum_peracre))
+
+dungsum_pasturecows <- dungsum %>%
+  filter(Species == "cattle") %>%
+  group_by(Pasture) %>%
+  summarise(dung_avg = mean(meancount))
+aum_avg <- left_join(aum_avg,dungsum_pasturecows)
+aum_sum <- left_join(aum_sum,dungsum_pasturecows)
+aum <- left_join(aum,dungsum_pasturecows)
+
+# Facet by water status
+pastures <- pastures %>%
+  mutate(fullwater = ifelse(pastures$CurrentWater1A==1|pastures$CurrentWater1B==1|pastures$CurrentWater2==1,1,0)) %>%
+  mutate(fullwater = ifelse(is.na(fullwater), 0, fullwater))
+dungsum <- dungsum %>%
+  left_join(dplyr::select(pastures,Pasture,fullwater),by="Pasture")
+
+# Cattle dung vs distance to water plots ----
+ggplot(data=dungsum[dungsum$Species=="cattle",],aes(x = WaterDist, y = meancount)) +
+  geom_point() + geom_smooth()
+ggplot(data=dungsum[dungsum$Species=="cattle",],aes(x = WaterDist, y = log(meancount + 1))) +
+  geom_point() + geom_smooth(method="lm") +
+  theme_classic()
+
+ggplot(data=dungsum[dungsum$Species=="cattle",],aes(x = WaterDist, y = log(meancount + 1))) +
+  geom_point(aes(color=Pasture)) + geom_smooth(method="lm",aes(group=Pasture,color=Pasture),se=F) +
+  facet_wrap(~fullwater) +
+  theme_classic() +
+  labs(x = "Distance from water [m]",y = "log(Dung count per transect)")
+ggplot(data=dungsum[dungsum$Species=="cattle",],aes(x = WaterDist, y = log(meancount + 1))) +
+  geom_point() + geom_smooth(method="lm") +
+  facet_wrap(~fullwater) +
+  theme_classic() +
+  labs(x = "Distance from water [m]",y = "log(Dung count per transect)")
+
+## Create plant species matrix, plant functional group matrix, and environmental matrix ----
+
+# Create plot by species matrix
+removecodes <- c("N","HL","","WL","W","NL")
+plantspp_long <- lpi %>%
+  pivot_longer(
+    cols = c(TopLayer,LowerLayer1,LowerLayer2,LowerLayer3,LowerLayer4),
+    names_to = "layer",
+    values_to = "sppcode"
+  ) %>%
+  filter(!sppcode %in% removecodes) %>%
+  group_by(PlotID,sppcode) %>%
+  summarise(cover = n()/150)
+plantspp_wide <- plantspp_long %>%
+  pivot_wider(names_from = sppcode,values_from = cover,values_fill=0)
+plantspp_matrix <- as.matrix(plantspp_wide[,-1])
+
+# summarize plant species abundance across plots
+plantspp_long_complete <- plantspp_long %>%
+  ungroup %>%
+  complete(PlotID,sppcode,fill=list(cover = 0))
+
+# AGCR presence/absence
+crestedonly <- plantspp_long_complete[plantspp_long_complete$sppcode=="AGCR",]
+crestedonly$Crested <- crestedonly$cover>0
+
+env <- dplyr::select(plotdata,PlotID) %>%
+  mutate(Pasture = sapply(strsplit(plotdata$PlotID,split="_"),"[[",1),
+         WaterDist = as.numeric(sapply(strsplit(plotdata$PlotID,split="_"),"[[",2)),
+         Asp = sapply(strsplit(plotdata$PlotID,split="_"),"[[",3)
+  ) %>%
+  left_join(dplyr::select(pastures,Pasture,FireHistory,Region,fullwater),by="Pasture") %>%
+  left_join(dplyr::select(plotdata,PlotID,Slope,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,hli,topodist,lastfire)) %>%
+  left_join(dplyr::select(crestedonly,PlotID,Crested)) %>%
+  left_join(dplyr::select(dungsum[dungsum$Species=="cattle",],PlotID,meancount),by="PlotID") %>%
+  rename(CattleDung = meancount) %>%
+  left_join(gapsummary) %>%
+  left_join(dplyr::select(dungsum_all,PlotID,totaldung))
+
+# plant species matrix annotated with environmental variables
+plantspp_long_plus <- plantspp_long_complete %>%
+  ungroup %>%
+  left_join(env)
+
+# functional cover summary
+functionalcover <- plantspp_long_complete %>%
+  left_join(dplyr::select(funckey,sppcode,FuncGroup)) %>%
+  group_by(PlotID,FuncGroup) %>%
+  summarise(cover = sum(cover)) 
+functionalcover_plus <- functionalcover %>%
+  ungroup() %>%
+  left_join(env)
+
+## Summarize data at pasture level ----
+# Pasture level summaries of plant data
+plantspp_pasture <- plantspp_long_complete %>%
+  ungroup() %>%
+  mutate(Pasture = sapply(strsplit(plantspp_long_complete$PlotID,split="_"),"[[",1)) %>%
+  group_by(Pasture,sppcode) %>%
+  summarise(cover = mean(cover))
+functionalcover_pasture <- functionalcover %>%
+  ungroup() %>%
+  mutate(Pasture = sapply(strsplit(functionalcover$PlotID,split="_"),"[[",1)) %>%
+  group_by(Pasture,FuncGroup) %>%
+  summarise(cover = mean(cover))
+  
+# Pasture level summaries of environmental data
+env_pasture <- env %>%
+  dplyr::select(Pasture,FireHistory,Region,fullwater,Slope,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,hli,topodist,Crested,CattleDung,totaldung,totalgap,meangap,maxgap,mediangap,lastfire) %>%
+  group_by(Pasture,FireHistory,Region,fullwater) %>%
+  summarise(CattleDung=mean(CattleDung),Slope = mean(Slope),Sand=mean(Sand),Silt=mean(Silt),Clay=mean(Clay),C=mean(C),N=mean(N),ppt=mean(ppt),tmean=mean(tmean),elev_ned=mean(elev_ned),totaldung=mean(totaldung),hli=mean(hli),topodist=mean(topodist),totalgap=mean(totalgap),meangap=mean(meangap),maxgap=mean(maxgap),mediangap=mean(mediangap),Crested=sum(Crested)>0,lastfire=mean(lastfire))
+# when complete - add in pasture-level AUM data here too
+
+plantspp_pasture_plus <- left_join(plantspp_pasture,env_pasture)
+functionalcover_pasture_plus <- left_join(functionalcover_pasture,env_pasture)
+
+## Subset dataframes and matrices by fire and crested wheatgrass categories ----
+# create vectors of plot IDs and pasture names for each subset
+
+plotnames_burned <- plotdata$PlotID[plotdata$FireHistory=="Burned"]
+plotnames_unburned <- plotdata$PlotID[plotdata$FireHistory=="Unburned"]
+plotnames_crested <- env$PlotID[env$Crested==T]
+plotnames_nocrested <- env$PlotID[env$Crested==F]
+
+plotnames_b_c <- plotnames_burned[plotnames_burned %in% plotnames_crested]
+plotnames_b_n <- plotnames_burned[plotnames_burned %in% plotnames_nocrested]
+plotnames_u_c <- plotnames_unburned[plotnames_unburned %in% plotnames_crested]
+plotnames_u_n <- plotnames_unburned[plotnames_unburned %in% plotnames_nocrested]
+
+pasturenames_burned <- env_pasture$Pasture[env_pasture$FireHistory=="Burned"]
+pasturenames_unburned <- env_pasture$Pasture[env_pasture$FireHistory=="Unburned"]
+pasturenames_crested <- env_pasture$Pasture[env_pasture$Crested==T]
+pasturenames_nocrested <- env_pasture$Pasture[env_pasture$Crested==F]
+
+pasturenames_b_c <- pasturenames_burned[pasturenames_burned %in% pasturenames_crested]
+pasturenames_b_n <- pasturenames_burned[pasturenames_burned %in% pasturenames_nocrested]
+pasturenames_u_c <- pasturenames_unburned[pasturenames_unburned %in% pasturenames_crested]
+pasturenames_u_n <- pasturenames_unburned[pasturenames_unburned %in% pasturenames_nocrested]
+
+## NMDS ordination and visualization ----
+
+# # species ordination
+# # remove rare species
+# plantspp_overall <- plantspp_long %>%
+#   group_by(sppcode) %>%
+#   summarize(plotcount = n(),plotprop = n()/267,avgcover = mean(cover))
+# common <- plantspp_overall$sppcode[plantspp_overall$plotprop>0.01]
+# plantspp_wide_common <- plantspp_long %>%
+#   subset(sppcode %in% common) %>%
+#   pivot_wider(names_from = sppcode,values_from = cover,values_fill=0)
+# plantspp_matrix_common <- as.matrix(plantspp_wide_common[,-1])
+# 
+# # all plant species
+# plantspp_matrix_rel <- decostand(plantspp_matrix_common,method="total")
+# set.seed(123)
+# plantspp_NMS <- metaMDS(plantspp_matrix_rel,trymax=100)
+# 
+# data.scores <- as.data.frame(scores(plantspp_NMS))
+# data.scores$site <- rownames(data.scores) 
+# data.scores$PlotID <- plantspp_wide$PlotID
+# head(data.scores) 
+# species.scores <- as.data.frame(scores(plantspp_NMS, "species"))  
+# species.scores$species <- rownames(species.scores)  
+# head(species.scores)  
+# data.scores <- left_join(data.scores,env)
+# 
+# ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Region,shape=Region)) +
+#   geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+#   theme_classic()
+# ggplot(data=data.scores,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=FireHistory,shape=Crested)) +
+#   geom_text(data=species.scores,aes(label=species),alpha=0.5) +
+#   theme_classic()
+# 
+# # functional group ordination
+# functional_wide <- functionalcover %>%
+#   dplyr::select(PlotID,FuncGroup,cover) %>%
+#   pivot_wider(names_from = FuncGroup,values_from = cover,values_fill=0)
+# functional_matrix <- as.matrix(functional_wide[,-1])
+# 
+# functional_matrix_rel <- decostand(functional_matrix,method="total")
+# set.seed(123)
+# functional_nms <- metaMDS(functional_matrix_rel,trymax=50)
+# functional_nms <- MDSrotate(functional_nms,functional_wide$AG) # trying out rotation to AG
+# 
+# data.scores.f <- as.data.frame(scores(functional_nms))
+# data.scores.f$site <- rownames(data.scores.f) 
+# data.scores.f$PlotID <- functional_wide$PlotID
+# head(data.scores.f)
+# species.scores.f <- as.data.frame(scores(functional_nms, "species"))
+# species.scores.f$species <- rownames(species.scores.f)
+# head(species.scores.f)
+# 
+# env_matrix <- env %>%
+#   dplyr::select(WaterDist,FireHistory,Sand,Silt,Clay,C,N,ppt,tmean,elev_ned,Crested,CattleDung,totaldung,hli,topodist)
+# en <- envfit(functional_nms, env_matrix, permutations = 999, na.rm = TRUE)
+# en_coord_cont = as.data.frame(scores(en, "vectors")) * 4 #* ordiArrowMul(en)
+# en_coord_cat = as.data.frame(scores(en, "factors")) * 4 #* ordiArrowMul(en)
+# 
+# data.scores.f <- data.scores.f %>%
+#   left_join(env) %>%
+#   mutate(Fire.Crested = as.factor(paste(FireHistory,Crested)),FireHistory = as.factor(FireHistory),Crested=as.factor(Crested))
+# 
+# # Environmental vectors
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Region,shape=Region)) +
+#   #geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic() +
+#   geom_text(data = en_coord_cont, aes(x = NMDS1, y = NMDS2), label = row.names(en_coord_cont)) 
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Region,shape=Region)) +
+#   #geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic() +
+#   geom_text(data = en_coord_cat, aes(x = NMDS1, y = NMDS2), label = row.names(en_coord_cat))
+# 
+# # Fire history
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=FireHistory)) +
+#   geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic()
+# 
+# # Crested
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Crested)) +
+#   geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic()
+# 
+# # Fire x crested
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Crested,shape=FireHistory)) +
+#   geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic()
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Fire.Crested)) +
+#   geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic()
+# 
+# # Plot with convex hulls for fire x crested - https://chrischizinski.github.io/rstats/vegan-ggplot2/
+# grp.a <- data.scores.f[data.scores.f$Fire.Crested == "Burned FALSE", ][chull(data.scores.f[data.scores.f$Fire.Crested == "Burned FALSE", c("NMDS1", "NMDS2")]), ] 
+# grp.b <- data.scores.f[data.scores.f$Fire.Crested == "Burned TRUE", ][chull(data.scores.f[data.scores.f$Fire.Crested == "Burned TRUE", c("NMDS1", "NMDS2")]), ] 
+# grp.c <- data.scores.f[data.scores.f$Fire.Crested == "Unburned FALSE", ][chull(data.scores.f[data.scores.f$Fire.Crested == "Unburned FALSE", c("NMDS1", "NMDS2")]), ] 
+# grp.d <- data.scores.f[data.scores.f$Fire.Crested == "Unburned TRUE", ][chull(data.scores.f[data.scores.f$Fire.Crested == "Unburned TRUE", c("NMDS1", "NMDS2")]), ] 
+# 
+# hull.data <- rbind(grp.a, grp.b,grp.c,grp.d)
+# hull.data
+# 
+# 
+# ggplot() + 
+#   geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS2,fill=Fire.Crested,group=Fire.Crested),alpha=0.30) + # add the convex hulls
+#   geom_text(data=species.scores.f,aes(x=NMDS1,y=NMDS2,label=species),alpha=0.5) +  # add the species labels
+#   geom_point(data=data.scores.f,aes(x=NMDS1,y=NMDS2,shape=Fire.Crested,colour=Fire.Crested),size=4) + # add the point markers
+#   coord_equal() +
+#   theme_bw() + 
+#   theme(axis.text.x = element_blank(),  # remove x-axis text
+#         axis.text.y = element_blank(), # remove y-axis text
+#         axis.ticks = element_blank(),  # remove axis ticks
+#         axis.title.x = element_text(size=18), # remove x-axis labels
+#         axis.title.y = element_text(size=18), # remove y-axis labels
+#         panel.background = element_blank(), 
+#         panel.grid.major = element_blank(),  #remove major-grid labels
+#         panel.grid.minor = element_blank(),  #remove minor-grid labels
+#         plot.background = element_blank())
+# 
+# # Plot with ellipses for fire x crested
+# # function for ellipsess 
+# veganCovEllipse <- function (cov, center = c(0, 0), scale = 1, npoints = 100) 
+# {
+#   theta <- (0:npoints) * 2 * pi/npoints
+#   Circle <- cbind(cos(theta), sin(theta))
+#   t(center + scale * t(Circle %*% chol(cov)))
+# }
+# 
+# #data for ellipse, in this case using the management factor
+# df_ell.fc <- data.frame() #sets up a data frame before running the function.
+# for(g in levels(data.scores.f$Fire.Crested)){
+#   df_ell.fc <- rbind(df_ell.fc, cbind(as.data.frame(with(data.scores.f[data.scores.f$Fire.Crested==g,],                                                                       veganCovEllipse(cov.wt(cbind(NMDS1,NMDS2),wt=rep(1/length(NMDS1),length(NMDS1)))$cov,center=c(mean(NMDS1),mean(NMDS2))))) ,Fire.Crested=g))
+# }
+# 
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Fire.Crested)) +
+#   geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic() +
+#   geom_path(data = df_ell.fc, aes(x = NMDS1, y = NMDS2, group = Fire.Crested,color=Fire.Crested))
+# 
+# #data for ellipse, in this case using the management factor
+# df_ell.fire <- data.frame() #sets up a data frame before running the function.
+# for(g in levels(data.scores.f$FireHistory)){
+#   df_ell.fire <- rbind(df_ell.fire, cbind(as.data.frame(with(data.scores.f[data.scores.f$FireHistory==g,],                                                                       veganCovEllipse(cov.wt(cbind(NMDS1,NMDS2),wt=rep(1/length(NMDS1),length(NMDS1)))$cov,center=c(mean(NMDS1),mean(NMDS2))))) ,FireHistory=g))
+# }
+# 
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=FireHistory)) +
+#   geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic() +
+#   geom_path(data = df_ell.fire, aes(x = NMDS1, y = NMDS2, group = FireHistory,color=FireHistory))
+# 
+# #data for ellipse, in this case using the management factor
+# df_ell.c <- data.frame() #sets up a data frame before running the function.
+# for(g in levels(data.scores.f$Crested)){
+#   df_ell.c <- rbind(df_ell.c, cbind(as.data.frame(with(data.scores.f[data.scores.f$Crested==g,],                                                                       veganCovEllipse(cov.wt(cbind(NMDS1,NMDS2),wt=rep(1/length(NMDS1),length(NMDS1)))$cov,center=c(mean(NMDS1),mean(NMDS2))))) ,Crested=g))
+# }
+# 
+# ggplot(data=data.scores.f,aes(x=NMDS1,y=NMDS2)) +
+#   geom_point(aes(color=Crested)) +
+#   geom_text(data=species.scores.f,aes(label=species)) +
+#   theme_classic() +
+#   geom_path(data = df_ell.c, aes(x = NMDS1, y = NMDS2, group = Crested,color=Crested))
+
+
+## Single species and single functional group multivariate analyses ----
+functionalcover_plus <- functionalcover_plus %>%
+  mutate(logtotaldung = log(totaldung+1),
+         logcattledung = log(CattleDung+1))
+functionalcover_scaled <- functionalcover_plus %>%
+  mutate(ppt = scale(ppt,center=T,scale=T),
+         logtotaldung=scale(logtotaldung,center=T,scale=T),
+         tmean = scale(tmean,center=T,scale=T),
+         elev_ned = scale(elev_ned,center=T,scale=T),
+         Sand = scale(Sand,center=T,scale=T),
+         hli = scale(hli,center=T,scale=T),
+         topodist = scale(topodist,center=T,scale=T),
+         FireHistory = factor(FireHistory,levels=c("Unburned","Burned")))
+functionalcover_scaledAG <- functionalcover_scaled[functionalcover_scaled$FuncGroup == "AG",]
+functionalcover_scaledPG <- functionalcover_scaled[functionalcover_scaled$FuncGroup == "PG",]
+functionalcover_scaledS <- functionalcover_scaled[functionalcover_scaled$FuncGroup == "S",]
+
+plantspp_long_plus <- plantspp_long_plus %>%
+  mutate(logtotaldung = log(totaldung+1),
+         logcattledung = log(CattleDung+1))
+plantspp_scaled <- plantspp_long_plus %>%
+  mutate(ppt = scale(ppt,center=T,scale=T),
+         logtotaldung=scale(logtotaldung,center=T,scale=T),
+         tmean = scale(tmean,center=T,scale=T),
+         elev_ned = scale(elev_ned,center=T,scale=T),
+         Sand = scale(Sand,center=T,scale=T),
+         hli = scale(hli,center=T,scale=T),
+         topodist = scale(topodist,center=T,scale=T),
+         FireHistory = factor(FireHistory,levels=c("Unburned","Burned")))
+BRTE_scaled <- plantspp_scaled[plantspp_scaled$sppcode=="BRTE",]
+
+functionalcover_scaledAG_b.c <- functionalcover_scaledAG[functionalcover_scaledAG$PlotID %in% plotnames_b_c,]
+functionalcover_scaledAG_b.n <- functionalcover_scaledAG[functionalcover_scaledAG$PlotID %in% plotnames_b_n,]
+functionalcover_scaledAG_u.c <- functionalcover_scaledAG[functionalcover_scaledAG$PlotID %in% plotnames_u_c,]
+functionalcover_scaledAG_u.n <- functionalcover_scaledAG[functionalcover_scaledAG$PlotID %in% plotnames_u_n,]
+
+# AG cover, BRTE cover, are zero-inflated
+# remove zeroes, log-transform, looks more normal
+hist(functionalcover_scaledAG$cover)
+hist(log(functionalcover_scaledAG$cover))
+hist(log(functionalcover_scaledAG$cover+0.01))
+sum(functionalcover_scaledAG$cover == 0)
+hist(BRTE_scaled$cover)
+hist(log(BRTE_scaled$cover))
+hist(log(BRTE_scaled$cover+0.01))
+sum(BRTE_scaled$cover == 0)
+# perennials look like they are less in need of transformation
+hist(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="PG"])
+hist(log(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="PG"]))
+hist(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="S"])
+hist(log(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="S"]))
+# forbs look best when log transformed
+hist(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="F"])
+hist(log(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="F"]))
+# are there large numbers of plots without presence of particular groups?
+sum(functionalcover_scaledAG$cover == 0) # AG yes
+sum(BRTE_scaled$cover == 0) # BRTE yes
+sum(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="PG"]==0) # none without PG
+sum(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="S"]==0) # shrub yes
+sum(functionalcover_scaled$cover[functionalcover_scaled$FuncGroup=="F"]==0) # forb borderline
+
+
+# next: binomial model for presence/absence + linear model for log abundance given presence?
+# decide what to do about question mark presences
+
+# # AG model only where AG is present
+# functionalcover_scaledAG_pres <- functionalcover_scaledAG[functionalcover_scaledAG$cover>0,]
+# functionalcover_scaledAG_pres$logcover <- log(functionalcover_scaledAG_pres$cover)
+# AGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=functionalcover_scaledAG_pres,na.action="na.fail",REML=F)
+# dredge(AGcover_fullmodel) # best model: elevation and HLI
+# # with crested as variable
+# AGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=functionalcover_scaledAG_pres,na.action="na.fail",REML=F)
+# dredge(AGcover_fullmodel) # best model: crested, elevation, HLI
+# 
+# # BRTE model only where BRTE is present
+# BRTE_scaled_pres <- BRTE_scaled[BRTE_scaled$cover>0,]
+# BRTE_scaled_pres$logcover <- log(BRTE_scaled_pres$cover)
+# BRTEcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=BRTE_scaled_pres,na.action="na.fail",REML=F)
+# dredge(BRTEcover_fullmodel) # best model: HLI*grazing
+# # with crested as variable
+# BRTEcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=BRTE_scaled_pres,na.action="na.fail",REML=F)
+# dredge(BRTEcover_fullmodel) # best model: crested, HLI, ppt
+# # nested by region and pasture - singular
+# BRTEcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Region/Pasture),data=BRTE_scaled_pres,na.action="na.fail",REML=F)
+# dredge(BRTEcover_fullmodel)
+# 
+# # PG model
+# functionalcover_scaledPG$logcover <- log(functionalcover_scaledPG$cover)
+# PGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=functionalcover_scaledPG,na.action="na.fail",REML=F)
+# dredge(PGcover_fullmodel) # best model: fire history, HLI, ppt
+# # with crested as variable
+# PGcover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=functionalcover_scaledPG,na.action="na.fail",REML=F)
+# dredge(PGcover_fullmodel) # best model: crested, fire, HLI, ppt
+# 
+# # shrub model only where shrubs are present
+# functionalcover_scaledS_pres <- functionalcover_scaledS[functionalcover_scaledS$cover>0,]
+# functionalcover_scaledS_pres$logcover <- log(functionalcover_scaledS_pres$cover)
+# Scover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli)*logcattledung + (1|Pasture),data=functionalcover_scaledS_pres,na.action="na.fail",REML=F)
+# dredge(Scover_fullmodel) # best model: fire history, HLI, ppt
+# # with crested as variable
+# Scover_fullmodel <- lmer(logcover ~ (FireHistory + elev_ned + ppt + tmean + Sand + hli + Crested)*logcattledung + (1|Pasture),data=functionalcover_scaledS_pres,na.action="na.fail",REML=F)
+# dredge(Scover_fullmodel)
+
+### Abiotic PCs ----
+# abiotic.pca <- prcomp(dplyr::select(plotdata,Sand,Silt,Clay,ppt,tmean,elev_ned,hli,topodist), center = TRUE,scale. = TRUE)
+# summary(abiotic.pca)
+# plot(abiotic.pca)
+# biplot(abiotic.pca)
+# abiotic.pca.pasture <- prcomp(dplyr::select(functionalcover_pasture_plus,Sand,Silt,Clay,ppt,tmean,elev_ned,hli,topodist), center = TRUE,scale. = TRUE)
+# summary(abiotic.pca.pasture)
+# plot(abiotic.pca.pasture)
+# biplot(abiotic.pca.pasture)
+
+## Pasture level analyses - zoomed out approach ----
+
+# Single variable relationships
+ggplot(functionalcover_pasture_plus[functionalcover_pasture_plus$FuncGroup=="AG",], aes(x=FireHistory,y=log(cover))) +
+  geom_boxplot()
+ggplot(functionalcover_pasture_plus, aes(x=FuncGroup,y=log(cover+0.01),color=FireHistory)) +
+  geom_boxplot()
+ggplot(functionalcover_pasture_plus, aes(x=FuncGroup,y=log(cover+0.01),color=FireHistory)) +
+  geom_boxplot() +
+  facet_wrap(.~Crested)
+ggplot(functionalcover_pasture_plus, aes(x=log(CattleDung+1),y=log(cover+0.01),color=Crested)) +
+  geom_point() +
+  facet_wrap(.~FuncGroup) +
+  geom_smooth(method="lm")
+ggplot(functionalcover_pasture_plus, aes(x=ppt,y=log(cover+0.01))) +
+  geom_point() +
+  facet_wrap(.~FuncGroup) +
+  geom_smooth(method="lm")
+ggplot(functionalcover_pasture_plus, aes(x=elev_ned,y=log(cover+0.01))) +
+  geom_point() +
+  facet_wrap(.~FuncGroup) +
+  geom_smooth(method="lm")  
+ggplot(functionalcover_pasture_plus, aes(x=Sand,y=log(cover+0.01))) +
+  geom_point() +
+  facet_wrap(.~FuncGroup) +
+  geom_smooth(method="lm")
+ggplot(functionalcover_pasture_plus, aes(x=log(CattleDung+1),y=log(cover+0.01))) +
+  geom_point() +
+  facet_wrap(.~FuncGroup) +
+  geom_smooth(method="lm")
+ggplot(functionalcover_pasture_plus, aes(x=tmean,y=log(cover+0.01))) +
+  geom_point() +
+  facet_wrap(.~FuncGroup) +
+  geom_smooth(method="lm")
+
+# variables need to be scaled for interaction terms
+functionalcover_pasture_plus <- functionalcover_pasture_plus %>%
+  mutate(logcattledung = log(CattleDung + 1)) 
+functionalcover_pasture_scaled <- functionalcover_pasture_plus[functionalcover_pasture_plus$Crested==F,] %>%
+  ungroup() %>%
+  group_by(FuncGroup) %>%
+  mutate(ppt = scale(ppt,center=T,scale=T),
+         logcattledung=scale(logcattledung,center=T,scale=T),
+         tmean = scale(tmean,center=T,scale=T),
+         elev_ned = scale(elev_ned,center=T,scale=T),
+         Sand = scale(Sand,center=T,scale=T),
+         FireHistory = factor(FireHistory,levels=c("Unburned","Burned")))
+functionalcover_pasture_scaledAG <- functionalcover_pasture_scaled[functionalcover_pasture_scaled$FuncGroup == "AG",]
+functionalcover_pasture_scaledPG <- functionalcover_pasture_scaled[functionalcover_pasture_scaled$FuncGroup == "PG",]
+functionalcover_pasture_scaledS <- functionalcover_pasture_scaled[functionalcover_pasture_scaled$FuncGroup == "S",]
+
+res <- cor(functionalcover_pasture_plus[,c("ppt","logcattledung","tmean","elev_ned","Sand","Silt","Clay","C","N")])
+round(res, 2)
+
+# pasturemodel_AG_full <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand + Crested),data=functionalcover_pasture_scaledAG,na.action="na.fail")
+# dredge(pasturemodel_AG_full)
+# # Crested + elevation is best model
+# #summary(lm(log(cover+0.01) ~ elev_ned + Crested,data=functionalcover_pasture_plus_AG,na.action="na.fail"))
+# pasturemodel_AG_full <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledAG,na.action="na.fail")
+# dredge(pasturemodel_AG_full)
+# # without crested, elev + sand is best model (but fire history and cattle dung also in top models)
+
+# Decision: communities with Crested are qualitatively different - split into crested and non-crested subsets for analysis
+
+# functionalcover_pasture_scaledAG_c <- functionalcover_pasture_scaledAG[functionalcover_pasture_scaledAG$Crested==T,]
+functionalcover_pasture_scaledAG_n <- functionalcover_pasture_scaledAG[functionalcover_pasture_scaledAG$Crested==F,]
+
+# pasturemodel_AG_full_crested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledAG_c,na.action="na.fail")
+# dredge(pasturemodel_AG_full_crested) # ppt + sand, followed by elev*dung
+# AGcrestedbestmodel <- lm(log(cover+0.01) ~ ppt + Sand,data=functionalcover_pasture_scaledAG_c,na.action="na.fail")
+# AGcrestedbestmodel2 <- lm(log(cover+0.01) ~ elev_ned*logcattledung,data=functionalcover_pasture_scaledAG_c,na.action="na.fail")
+pasturemodel_AG_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledAG_n,na.action="na.fail")
+dredge(pasturemodel_AG_full_nocrested) # elevation, dung, temp, temp*dung
+AGnocrestedbestmodel <- lm(log(cover+0.01) ~ logcattledung*tmean + elev_ned,data=functionalcover_pasture_scaledAG_n,na.action="na.fail")
+# # trying new stepwise approaches to AIC model selection?
+# drop1(pasturemodel_AG_full_nocrested)
+# AGnocresteddropmodel <- drop1(pasturemodel_AG_full_nocrested,test="F")
+# AGnocresteddropmodel2 <- drop1(lm(log(cover+0.01) ~ logcattledung*(elev_ned + tmean) + ppt + FireHistory + Sand,data=functionalcover_pasture_scaledAG_n,na.action="na.fail"),test="F")
+# AGnocresteddropmodel3 <- drop1(lm(log(cover+0.01) ~ logcattledung*tmean + elev_ned,data=functionalcover_pasture_scaledAG_n,na.action="na.fail"),test="F")
+# AGnocrestedstepmodel <- step(pasturemodel_AG_full_nocrested,direction="both")
+# AGnocrestedstepmodel2 <- stepAIC(pasturemodel_AG_full_nocrested,direction="both")
+
+
+#functionalcover_pasture_scaledPG_c <- functionalcover_pasture_scaledPG[functionalcover_pasture_scaledPG$Crested==T,]
+functionalcover_pasture_scaledPG_n <- functionalcover_pasture_scaledPG[functionalcover_pasture_scaledPG$Crested==F,]
+
+# pasturemodel_PG_full_crested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledPG_c,na.action="na.fail")
+# dredge(pasturemodel_PG_full_crested) # fire history or precip
+# PGcrestedbestmodel1 <- lm(log(cover+0.01) ~ FireHistory ,data=functionalcover_pasture_scaledPG_c,na.action="na.fail")
+# PGcrestedbestmodel2 <- lm(log(cover+0.01) ~ ppt ,data=functionalcover_pasture_scaledPG_c,na.action="na.fail")
+pasturemodel_PG_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledPG_n,na.action="na.fail")
+dredge(pasturemodel_PG_full_nocrested) # elev, fire history, ppt, sand, tmean
+PGnocrestedbestmodel <- lm(log(cover+0.01) ~ elev_ned + ppt + tmean + FireHistory + Sand,data=functionalcover_pasture_scaledPG_n,na.action="na.fail")
+
+# functionalcover_pasture_scaledS_c <- functionalcover_pasture_scaledS[functionalcover_pasture_scaledS$Crested==T,]
+# functionalcover_pasture_scaledS_n <- functionalcover_pasture_scaledS[functionalcover_pasture_scaledS$Crested==F,]
+# 
+# pasturemodel_S_full_crested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledS_c,na.action="na.fail")
+# dredge(pasturemodel_S_full_crested) # fire history, precip, tmean
+# Screstedbestmodel <- lm(log(cover+0.01) ~ FireHistory + ppt + tmean,data=functionalcover_pasture_scaledS_c,na.action="na.fail")
+# pasturemodel_S_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledS_n,na.action="na.fail")
+# dredge(pasturemodel_S_full_nocrested) # just fire history
+# Snocrestedbestmodel <- lm(log(cover+0.01) ~ FireHistory,data=functionalcover_pasture_scaledS_n,na.action="na.fail")
+
+
+
+### Zoom in - what determines heterogeneity within pastures? ----
+# make new dataframe with local-scale variables, then standardize grazing and soil to pasture
+functional_localhet <- functionalcover_plus[,c("PlotID","FuncGroup","cover","Pasture","Slope","Sand","hli","topodist","logcattledung","Crested","FireHistory","WaterDist")] %>%
+  mutate(logcover = log(cover+0.01)) %>%
+  group_by(Pasture,FuncGroup) %>%
+  mutate(logcattledev = logcattledung-mean(logcattledung),
+         sanddev = Sand-mean(Sand),
+         logcoverdev = logcover-mean(logcover),
+         topodistindex = sqrt(topodist),
+         logslope = log(Slope)) %>%
+  filter(Crested==F)
+
+# Predict potential log cover from pasture-level linear models
+PGpredict <- cbind(functionalcover_pasture_scaledPG_n$Pasture,predict(PGnocrestedbestmodel)) %>%
+  data.frame %>%
+  rename(Pasture = X1, potential = X2) %>%
+  mutate(potential=as.numeric(as.character(potential)),FuncGroup = "PG")
+
+AGpredict <- cbind(functionalcover_pasture_scaledAG_n$Pasture,predict(AGnocrestedbestmodel)) %>%
+  data.frame %>%
+  rename(Pasture = X1, potential = X2) %>%
+  mutate(potential=as.numeric(as.character(potential)),FuncGroup = "AG")  
+
+Spredict <- cbind(functionalcover_pasture_scaledS_n$Pasture,predict(Snocrestedbestmodel)) %>%
+  data.frame %>%
+  rename(Pasture = X1, potential = X2) %>%
+  mutate(potential=as.numeric(as.character(potential)),FuncGroup = "S")                       
+AG_localhet <- functional_localhet %>%
+  ungroup() %>%
+  filter(FuncGroup=="AG") %>%
+  left_join(AGpredict)
+PG_localhet <- functional_localhet %>%
+  ungroup() %>%
+  filter(FuncGroup=="PG") %>%
+  left_join(PGpredict)
+S_localhet <- functional_localhet %>%
+  ungroup() %>%
+  filter(FuncGroup=="S") %>%
+  left_join(Spredict)
+
+ggplot(data=AG_localhet,aes(x=sanddev,y=logcoverdev)) +
+  geom_point() +
+  facet_grid(FireHistory ~ Crested)
+ggplot(data=AG_localhet,aes(x=logcattledev,y=logcoverdev)) +
+  geom_point() +
+  facet_grid(FireHistory ~ Crested)
+ggplot(data=AG_localhet,aes(x=topodistindex,y=logcoverdev)) +
+  geom_point() +
+  facet_grid(FireHistory ~ Crested)
+ggplot(data=AG_localhet,aes(x=hli,y=logcoverdev)) +
+  geom_point() +
+  facet_grid(FireHistory ~ Crested)
+ggplot(data=AG_localhet,aes(x=log(Slope),y=logcoverdev)) +
+  geom_point() +
+  facet_grid(FireHistory ~ Crested)
+ggplot(data=AG_localhet,aes(x=potential,y=logcoverdev)) +
+  geom_point() +
+  facet_grid(FireHistory ~ Crested)
+ggplot(data=AG_localhet,aes(x=WaterDist,y=logcoverdev)) +
+  geom_point() +
+  facet_grid(FireHistory ~ Crested)
+
+ggplot(data=AG_localhet,aes(x=sanddev,y=logcoverdev)) +
+  geom_point(aes(color=potential))
+ggplot(data=AG_localhet,aes(x=logcattledev,y=logcoverdev)) +
+  geom_point(aes(color=potential))
+ggplot(data=AG_localhet,aes(x=topodistindex,y=logcoverdev)) +
+  geom_point(aes(color=potential))
+ggplot(data=AG_localhet,aes(x=hli,y=logcoverdev)) +
+  geom_point(aes(color=potential))
+ggplot(data=AG_localhet,aes(x=log(Slope),y=logcoverdev)) +
+  geom_point(aes(color=potential))
+ggplot(data=AG_localhet,aes(x=potential,y=logcoverdev)) +
+  geom_point(aes(color=potential))
+
+ggplot(data=PG_localhet,aes(x=sanddev,y=logcoverdev)) +
+  geom_point() +
+  facet_wrap(. ~ Crested)
+ggplot(data=PG_localhet,aes(x=logcattledev,y=logcoverdev)) +
+  geom_point() +
+  facet_wrap(. ~ Crested)
+ggplot(data=PG_localhet,aes(x=topodistindex,y=logcoverdev)) +
+  geom_point() +
+  facet_wrap(. ~ Crested)
+ggplot(data=PG_localhet,aes(x=hli,y=logcoverdev)) +
+  geom_point() +
+  facet_wrap(. ~ Crested)
+ggplot(data=PG_localhet,aes(x=log(Slope),y=logcoverdev)) +
+  geom_point() +
+  facet_wrap(. ~ Crested)
+ggplot(data=PG_localhet,aes(x=potential,y=logcoverdev)) +
+  geom_point() +
+  facet_wrap(. ~ Crested)
+
+
+# linear models for plot level heterogeneity
+AG_localhet_scaled <- AG_localhet %>%
+  ungroup() %>%
+  group_by(FuncGroup) %>%
+  mutate(Slope = scale(Slope,center=T,scale=T),
+          hli=scale(hli,center=T,scale=T),
+          topodist = scale(topodist,center=T,scale=T),
+          logcattledev = scale(logcattledev,center=T,scale=T),
+          sanddev = scale(sanddev,center=T,scale=T),
+          potential = scale(potential,center=T,scale=T),
+          WaterDist = scale(WaterDist,center=T,scale=T),
+          topodistindex = scale(topodistindex,center=T,scale=T))
+
+PG_localhet_scaled <- PG_localhet %>%
+  ungroup() %>%
+  group_by(FuncGroup) %>%
+  mutate(Slope = scale(Slope,center=T,scale=T),
+         hli=scale(hli,center=T,scale=T),
+         topodist = scale(topodist,center=T,scale=T),
+         logcattledev = scale(logcattledev,center=T,scale=T),
+         sanddev = scale(sanddev,center=T,scale=T),
+         potential = scale(potential,center=T,scale=T),
+         WaterDist = scale(WaterDist,center=T,scale=T),
+         topodistindex = scale(topodistindex,center=T,scale=T))
+
+S_localhet_scaled <- S_localhet %>%
+  ungroup() %>%
+  group_by(FuncGroup) %>%
+  mutate(Slope = scale(Slope,center=T,scale=T),
+         hli=scale(hli,center=T,scale=T),
+         topodist = scale(topodist,center=T,scale=T),
+         logcattledev = scale(logcattledev,center=T,scale=T),
+         sanddev = scale(sanddev,center=T,scale=T),
+         potential = scale(potential,center=T,scale=T),
+         WaterDist = scale(WaterDist,center=T,scale=T),
+         topodistindex = scale(topodistindex,center=T,scale=T))
+
+# AG_localhet_fullmodel <- lm(logcoverdev ~ potential*(Slope + hli + topodist + logcattledev + sanddev),data=AG_localhet_scaled,na.action="na.fail")
+# dredge(AG_localhet_fullmodel) # hli
+# summary(lm(logcoverdev ~ hli,data=AG_localhet_scaled))
+# 
+# PG_localhet_fullmodel <- lm(logcoverdev ~ potential*(Slope + hli + topodist + logcattledev + sanddev),data=PG_localhet_scaled,na.action="na.fail")
+# dredge(PG_localhet_fullmodel) # topodist, hli*potential
+# summary(lm(logcoverdev ~ hli*potential + topodist, data=PG_localhet_scaled))
+# 
+# S_localhet_fullmodel <- lm(logcoverdev ~ potential*(Slope + hli + topodist + logcattledev + sanddev),data=S_localhet_scaled,na.action="na.fail")
+# dredge(S_localhet_fullmodel) # hli, dung, potential*slope, topodist
+# summary(lm(logcoverdev ~ potential*Slope + hli + topodist + logcattledev,data=S_localhet_scaled,na.action="na.fail"))
+
+# crested split
+#AG_localhet_scaled_c <- AG_localhet_scaled[AG_localhet_scaled$Crested==T,]
+AG_localhet_scaled_n <- AG_localhet_scaled[AG_localhet_scaled$Crested==F&!is.na(AG_localhet_scaled_n$potential),]
+#PG_localhet_scaled_c <- PG_localhet_scaled[PG_localhet_scaled$Crested==T,]
+PG_localhet_scaled_n <- PG_localhet_scaled[PG_localhet_scaled$Crested==F&!is.na(PG_localhet_scaled_n$potential),]
+#S_localhet_scaled_c <- S_localhet_scaled[S_localhet_scaled$Crested==T,]
+S_localhet_scaled_n <- S_localhet_scaled[S_localhet_scaled$Crested==F&!is.na(S_localhet_scaled_n$potential),]
+
+
+#AG_localhet_fullmodel_c <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=AG_localhet_scaled_c,na.action="na.fail")
+#dredge(AG_localhet_fullmodel_c) 
+# topodist: just hli
+# tdi: just hli
+# waterdist: just hli
+AG_localhet_fullmodel_n <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=AG_localhet_scaled_n,na.action="na.fail")
+dredge(AG_localhet_fullmodel_n) 
+# topodist: just hli
+# topodistindex: just hli
+# waterdist: just hli
+AG_localhet_bestmodel_n <- lm(logcoverdev ~ hli,data=AG_localhet_scaled_n,na.action="na.fail")
+
+#PG_localhet_fullmodel_c <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=PG_localhet_scaled_c,na.action="na.fail")
+#dredge(PG_localhet_fullmodel_c) 
+# topodist: null model
+# topodistindex: null model
+# waterdist: waterdist or hli
+PG_localhet_fullmodel_n <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=PG_localhet_scaled_n,na.action="na.fail")
+dredge(PG_localhet_fullmodel_n) 
+# topodist: hli*potential, topodist
+# topodistindex: hli*potential, topodistindex
+# waterdist: hli*potential, sand, waterdist
+PG_localhet_bestmodel_n <- lm(logcoverdev ~ potential*hli + WaterDist + sanddev,data=PG_localhet_scaled_n,na.action="na.fail")
+
+S_localhet_fullmodel_c <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=S_localhet_scaled_c,na.action="na.fail")
+dredge(S_localhet_fullmodel_c) 
+# topodist: dung, topodist
+# topodistindex: just dung
+# waterdist: dung, waterdist
+S_localhet_fullmodel_n <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=S_localhet_scaled_n,na.action="na.fail")
+dredge(S_localhet_fullmodel_n) 
+# topodist: hli*potential, sand*potential, slope*potential
+# topodistindex: hli*potential, sand*potential, slope*potential
+# waterdist: hli*potential, sand*potential, slope*potential
+
+
+### Shrub analyses split by resprouting category ----
+
+resprouters <- resprout$Species[resprout$Resprout==1]
+nonsprouters <- resprout$Species[resprout$Resprout==0]
+
+functionalcover_shrubcats <- plantspp_long_complete %>%
+  left_join(dplyr::select(funckey,sppcode,FuncGroup)) %>%
+  filter(FuncGroup=="S") %>%
+  left_join(resprout,by=c("sppcode"="Species")) %>%
+  group_by(PlotID,Resprout) %>%
+  summarise(cover = sum(cover)) 
+functionalcover_shrubcats_plus <- functionalcover_shrubcats %>%
+  ungroup() %>%
+  left_join(env)
+functionalcover_shrubcats_pasture <- functionalcover_shrubcats %>%
+  ungroup() %>%
+  mutate(Pasture = sapply(strsplit(functionalcover_shrubcats$PlotID,split="_"),"[[",1)) %>%
+  group_by(Pasture,Resprout) %>%
+  summarise(cover = mean(cover))
+functionalcover_shrubcats_pasture_plus <- functionalcover_shrubcats_pasture %>%
+  ungroup() %>%
+  left_join(env_pasture)
+
+functionalcover_shrubcats_pasture_plus <- functionalcover_shrubcats_pasture_plus %>%
+  mutate(logtotaldung = log(totaldung+1),
+         logcattledung = log(CattleDung+1))
+functionalcover_shrubcats_scaled <- filter(functionalcover_shrubcats_pasture_plus,Crested==F) %>%
+  mutate(ppt = scale(ppt,center=T,scale=T),
+         logcattledung=scale(logcattledung,center=T,scale=T),
+         tmean = scale(tmean,center=T,scale=T),
+         elev_ned = scale(elev_ned,center=T,scale=T),
+         Sand = scale(Sand,center=T,scale=T),
+         hli = scale(hli,center=T,scale=T),
+         topodist = scale(topodist,center=T,scale=T),
+         FireHistory = factor(FireHistory,levels=c("Unburned","Burned")))
+
+functionalcover_scaledS_re <- functionalcover_shrubcats_scaled[functionalcover_shrubcats_scaled$Resprout==1,]
+functionalcover_scaledS_no <- functionalcover_shrubcats_scaled[functionalcover_shrubcats_scaled$Resprout==0,]
+
+functionalcover_pasture_scaledS_re_n <- filter(functionalcover_scaledS_re,Crested==F)
+functionalcover_pasture_scaledS_no_n <- filter(functionalcover_scaledS_no,Crested==F)
+
+pasturemodel_S_re_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledS_re_n,na.action="na.fail")
+dredge(pasturemodel_S_re_full_nocrested) # elevation and cattle
+Srenocrestedbestmodel <- lm(log(cover+0.01) ~ logcattledung + elev_ned,data=functionalcover_pasture_scaledS_re_n,na.action="na.fail")
+
+pasturemodel_S_no_full_nocrested <- lm(log(cover+0.01) ~ logcattledung*(elev_ned + ppt + tmean + FireHistory + Sand),data=functionalcover_pasture_scaledS_no_n,na.action="na.fail")
+dredge(pasturemodel_S_no_full_nocrested) # just fire history
+Snonocrestedbestmodel <- lm(log(cover+0.01) ~ FireHistory,data=functionalcover_pasture_scaledS_no_n,na.action="na.fail")
+
+shrubcolors <- c('#feebe2','#fcc5c0','#fa9fb5','#f768a1','#dd3497','#ae017e','#7a0177')
+functionalcover_shrubcats_pasture_plus$ResproutLabel <- factor(functionalcover_shrubcats_pasture_plus$Resprout,levels = c("0","1"),labels = c("Non-resprouting","Resprouting"))
+ggplot(data = subset(functionalcover_shrubcats_pasture_plus,Crested==F),aes(x=FireHistory,y=cover+0.01)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  labs(x = "Fire History",y = element_blank()) +
+  geom_jitter(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24)) +
+  facet_wrap(.~ResproutLabel)
+ggplot(data = subset(functionalcover_shrubcats_pasture_plus,Crested==F),aes(x=elev_ned,y=cover+0.01)) +
+  scale_y_log10() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  labs(x = "Elevation (m)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24)) +
+  facet_wrap(.~ResproutLabel) +
+  geom_smooth(method="lm",se=F,data=subset(functionalcover_shrubcats_pasture_plus,Crested==F&Resprout==1),color="black")
+ggplot(data = subset(functionalcover_shrubcats_pasture_plus,Crested==F),aes(x=ppt,y=cover+0.01)) +
+  scale_y_log10() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  labs(x = "Mean annual precipitation (mm)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24)) +
+  facet_wrap(.~ResproutLabel)
+ggplot(data = subset(functionalcover_shrubcats_pasture_plus,Crested==F),aes(x=tmean,y=cover+0.01)) +
+  scale_y_log10() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  labs(x = "Mean annual temperature (degrees C)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24)) +
+  facet_wrap(.~ResproutLabel)
+ggplot(data = subset(functionalcover_shrubcats_pasture_plus,Crested==F),aes(x=Sand,y=cover+0.01)) +
+  scale_y_log10() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  labs(x = "Soil sand content (%)",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24)) +
+  facet_wrap(.~ResproutLabel)
+ggplot(data = subset(functionalcover_shrubcats_pasture_plus,Crested==F),aes(x=logcattledung,y=cover+0.01)) +
+  scale_y_log10() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  labs(x = "Log-transformed cattle dung count (log[dung per plot + 1])",y = element_blank()) +
+  geom_point(aes(fill=cover,shape=Crested),size=3,colour = "black",show.legend = F) +
+  scale_fill_gradientn(colours=shrubcolors) +
+  scale_shape_manual(values=c(21,24)) +
+  facet_wrap(.~ResproutLabel) +
+  geom_smooth(method="lm",se=F,data=subset(functionalcover_shrubcats_pasture_plus,Crested==F&Resprout==1),color="black")
+
+
+### Local heterogeneity for shrub sub-groups
+
+functional_localhet_shrubcats <- functionalcover_shrubcats_plus[,c("PlotID","cover","Pasture","Slope","Sand","hli","topodist","CattleDung","Crested","FireHistory","WaterDist","Resprout")] %>%
+  filter(Crested==F) %>%
+  mutate(logcover = log(cover+0.01),
+         logcattledung = log(CattleDung+1)) %>%
+  group_by(Pasture,Resprout) %>%
+  mutate(logcattledev = logcattledung-mean(logcattledung),
+         sanddev = Sand-mean(Sand),
+         logcoverdev = logcover-mean(logcover),
+         topodistindex = sqrt(topodist),
+         logslope = log(Slope))
+
+# Predict potential log cover from pasture-level linear models
+
+Spredict_shrubcats_re <- cbind(functionalcover_pasture_scaledS_re_n$Pasture,predict(Srenocrestedbestmodel)) %>%
+  data.frame %>%
+  rename(Pasture = X1, potential = X2) %>%
+  mutate(potential=as.numeric(as.character(potential)),Resprout = 1)
+
+Spredict_shrubcats_no <- cbind(functionalcover_pasture_scaledS_no_n$Pasture,predict(Snonocrestedbestmodel)) %>%
+  data.frame %>%
+  rename(Pasture = X1, potential = X2) %>%
+  mutate(potential=as.numeric(as.character(potential)),Resprout = 0)
+
+
+S_re_localhet <- functional_localhet_shrubcats %>%
+  ungroup() %>%
+  filter(Resprout==1,Crested==F) %>%
+  left_join(Spredict_shrubcats_re) %>%
+  filter(!is.na(potential))
+
+S_no_localhet <- functional_localhet_shrubcats %>%
+  ungroup() %>%
+  filter(Resprout==0,Crested==F) %>%
+  left_join(Spredict_shrubcats_no) %>%
+  filter(!is.na(potential))
+
+S_re_localhet_scaled <- S_re_localhet %>%
+  ungroup() %>%
+  mutate(Slope = scale(Slope,center=T,scale=T),
+         hli=scale(hli,center=T,scale=T),
+         topodist = scale(topodist,center=T,scale=T),
+         logcattledev = scale(logcattledev,center=T,scale=T),
+         sanddev = scale(sanddev,center=T,scale=T),
+         potential = scale(potential,center=T,scale=T),
+         WaterDist = scale(WaterDist,center=T,scale=T),
+         topodistindex = scale(topodistindex,center=T,scale=T)) %>%
+  filter(!is.na(potential))
+
+S_no_localhet_scaled <- S_no_localhet %>%
+  ungroup() %>%
+  mutate(Slope = scale(Slope,center=T,scale=T),
+         hli=scale(hli,center=T,scale=T),
+         topodist = scale(topodist,center=T,scale=T),
+         logcattledev = scale(logcattledev,center=T,scale=T),
+         sanddev = scale(sanddev,center=T,scale=T),
+         potential = scale(potential,center=T,scale=T),
+         WaterDist = scale(WaterDist,center=T,scale=T),
+         topodistindex = scale(topodistindex,center=T,scale=T)) %>%
+  filter(!is.na(potential))
+
+S_re_localhet_fullmodel <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=S_re_localhet_scaled,na.action="na.fail")
+dredge(S_re_localhet_fullmodel) # log cattle dung and slope
+summary(lm(logcoverdev ~ logcattledev + Slope,data=S_re_localhet_scaled,na.action="na.fail"))
+
+S_no_localhet_fullmodel <- lm(logcoverdev ~ potential*(Slope + hli + WaterDist + logcattledev + sanddev),data=S_no_localhet_scaled,na.action="na.fail")
+dredge(S_no_localhet_fullmodel) # hli, log cattle dung, sand*potential, waterdist*potential 
+summary(lm(logcoverdev ~ potential*(WaterDist + sanddev)+hli+logcattledev,data=S_no_localhet_scaled,na.action="na.fail"))
+
+ggplot(data=S_no_localhet,aes(x=sanddev,y=logcoverdev,fill=potential)) +
+  geom_point(shape=21) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        strip.text=element_blank()) +
+  scale_fill_gradientn(colours=shrubcolors) +
+  geom_smooth(method="lm",se=F,color="#dd3497",data = S_no_localhet) +
+  geom_smooth(method="lm",se=F,color="#7a0177",data = subset(S_no_localhet, potential>mean(potential))) +
+  geom_smooth(method="lm",se=F,color="#fa9fb5",data = subset(S_no_localhet, potential<mean(potential)))
+
+# Time since fire
+# Time since fire
+functionalcover_pasture_firecont <- functionalcover_pasture_plus %>%
+  filter(lastfire>500&Crested==F) %>%
+  mutate(timesincefire = 2021-lastfire)
+functionalcover_pasture_firecont_shrubcats <- functionalcover_shrubcats_pasture_plus %>%
+  filter(lastfire>500&Crested==F) %>%
+  mutate(timesincefire = 2021-lastfire)
+
+ggplot(data=functionalcover_pasture_firecont,aes(x=timesincefire,y=log(cover+0.01))) + 
+  geom_point() +
+  facet_wrap(.~FuncGroup) +
+  geom_smooth(method="lm")
+
+ggplot(data=functionalcover_pasture_firecont_shrubcats,aes(x=2021-lastfire,y=log(cover+0.01))) + 
+  geom_point() +
+  facet_wrap(.~Resprout) +
+  geom_smooth(method="lm")
+
+AGlastfiremodel <- lm(log(cover+0.01)~timesincefire,data=subset(functionalcover_pasture_firecont,FuncGroup=="AG"))
+summary(AGlastfiremodel)
+
+PGlastfiremodel <- lm(log(cover+0.01)~timesincefire,data=subset(functionalcover_pasture_firecont,FuncGroup=="PG"))
+summary(PGlastfiremodel)
+
+SRlastfiremodel <- lm(log(cover+0.01)~timesincefire,data=subset(functionalcover_pasture_firecont_shrubcats,Resprout==1))
+summary(SRlastfiremodel)
+
+SNlastfiremodel <- lm(log(cover+0.01)~timesincefire,data=subset(functionalcover_pasture_firecont_shrubcats,Resprout==0))
+summary(SNlastfiremodel)
+
+
+# correlations among functional groups
+covergrasses_nocrested <- functionalcover_pasture_plus %>%
+  filter(Crested==F) %>%
+  filter(FuncGroup=="AG"|FuncGroup=="PG") %>%
+  dplyr::select(Pasture,FuncGroup,cover)
+covershrubcats_nocrested <- functionalcover_shrubcats_pasture_plus %>%
+  filter(Crested==F) %>%
+  dplyr::select(Pasture,Resprout,cover) %>%
+  rename(FuncGroup=Resprout) %>%
+  mutate(FuncGroup=recode(as.character(FuncGroup),"1"="SR","0"="SN"))
+cover4classes <- rbind(covergrasses_nocrested,covershrubcats_nocrested) %>%
+  spread(FuncGroup,cover)
+cor(cover4classes[,2:5])
+cor(log(cover4classes[,2:5]+0.01))
+
+
+# summary values
+min(functionalcover_pasture_plus$cover[functionalcover_pasture_plus$FuncGroup=="AG"&functionalcover_pasture_plus$Crested==F])
+max(functionalcover_pasture_plus$cover[functionalcover_pasture_plus$FuncGroup=="AG"&functionalcover_pasture_plus$Crested==F])
+min(functionalcover_pasture_plus$cover[functionalcover_pasture_plus$FuncGroup=="PG"&functionalcover_pasture_plus$Crested==F])
+max(functionalcover_pasture_plus$cover[functionalcover_pasture_plus$FuncGroup=="PG"&functionalcover_pasture_plus$Crested==F])
+min(functionalcover_shrubcats_plus$cover[functionalcover_shrubcats_plus$Resprout==1&functionalcover_shrubcats_plus$Crested==F])
+max(functionalcover_shrubcats_plus$cover[functionalcover_shrubcats_plus$Resprout==1&functionalcover_shrubcats_plus$Crested==F])
+min(functionalcover_shrubcats_plus$cover[functionalcover_shrubcats_plus$Resprout==0&functionalcover_shrubcats_plus$Crested==F])
+max(functionalcover_shrubcats_plus$cover[functionalcover_shrubcats_plus$Resprout==0&functionalcover_shrubcats_plus$Crested==F])
